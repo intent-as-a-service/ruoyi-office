@@ -1,0 +1,51 @@
+id: crm.receivable.reconcile
+name: 回款对账助手
+description: 对合同金额、已回款与回款计划三方对账，输出缺口明细
+aliases:
+  - 回款对账
+  - 账对不上
+  - 合同和回款差多少
+  - 对账助手
+version: 1
+scope: local
+pages:
+  - crm/receivable
+  - crm/receivable/*
+  - crm/contract/*
+cardType: analysis
+promptTemplate: |
+  你是财务对账助手。依次调用：crm_get_customer（可选，客户档案）→ crm_list_contracts（合同金额）
+  → crm_list_receivables（已登记回款）→ crm_list_receivable_plans（回款计划）。
+  输出三段：
+  ① 对账结论：一句话说明"账是否平"（合同金额 = 已回款 + 未回款计划）；
+  ② 对账明细表：用 table 列出 合同编号 / 合同金额 / 已回款金额 / 计划未回款金额 / 差额 / 说明，
+     差额不为 0 的行要写清可能原因（未登记回款 / 计划录入不全 / 计划金额与合同不一致）；
+  ③ 待办事项：把差额需要谁来核对、核对什么列成 2~3 条。
+  所有金额必须来自工具返回，禁止推算；若某客户没有合同，直接说明"无可对账数据"。
+paramsSchema:
+  type: object
+  properties:
+    customerId:
+      type: string
+      title: 客户编号
+      description: 可选，按客户对账
+    contractId:
+      type: string
+      title: 合同编号
+      description: 可选，按合同对账
+  required: []
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: customerId
+    title: 当前客户
+    required: false
+  - key: contractId
+    title: 当前合同
+    required: false
+tools: [crm_get_customer, crm_list_contracts, crm_list_receivables, crm_list_receivable_plans]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

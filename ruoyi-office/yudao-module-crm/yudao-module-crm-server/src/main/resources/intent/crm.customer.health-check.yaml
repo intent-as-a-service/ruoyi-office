@@ -1,0 +1,42 @@
+id: crm.customer.health-check
+name: 客户健康度诊断
+description: 八个维度给客户打分，输出健康等级与改进项
+aliases:
+  - 这个客户健康吗
+  - 客户健康度诊断
+  - 客户评分
+  - 客户身体状况
+version: 1
+scope: local
+pages:
+  - crm/customer
+  - crm/customer/*
+cardType: analysis
+promptTemplate: |
+  你是 CRM 客户成功顾问。先调用 crm_customer_facts 取该客户的经营事实。
+  按八个维度打分（每项 0-10）：最近联系及时性、跟进频次、在手商机储备、合同存量、
+  回款健康度、逾期风险、联系人覆盖面、关键人覆盖。
+  输出要求：
+  1. 结论先行：健康 / 关注 / 预警 三档 + 总分（0-100）；
+  2. 用 table 列出八个维度的得分与依据，依据必须引用事实数字（如"距上次联系 21 天""有 1 笔逾期 18 天"）；
+  3. 给出 3 条改进项，每条写明"谁在什么时候做什么"，优先解决扣分最多的两项；
+  4. 事实缺失的维度标"数据不足"，不要编造。
+paramsSchema:
+  type: object
+  properties:
+    customerId:
+      type: string
+      title: 客户编号
+  required: [customerId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: customerId
+    title: 当前客户
+    required: true
+tools: [crm_customer_facts, crm_get_customer]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

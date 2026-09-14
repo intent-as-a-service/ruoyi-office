@@ -1,0 +1,43 @@
+id: crm.customer.churn-warning
+name: 客户流失预警
+description: 识别流失信号并给出挽回动作，可写入跟进记录
+aliases:
+  - 客户是不是要跑
+  - 客户流失预警
+  - 客户不活跃了
+  - 客户要丢了吗
+version: 1
+scope: local
+pages:
+  - crm/customer
+  - crm/customer/*
+cardType: analysis
+promptTemplate: |
+  你是 CRM 客户成功专家，判断这个客户是否有流失风险。先调用 crm_customer_facts 取事实。
+  按五个信号检查并给出证据：① 联系断档（距上次联系天数）② 跟进频次下降 ③ 无在手商机
+  ④ 合同到期未续 ⑤ 回款逾期。每个信号标"命中/未命中"并附数字。
+  输出要求：
+  1. 结论：高/中/低流失风险；
+  2. 命中的信号清单（用 table：信号 / 证据 / 影响）；
+  3. 挽回动作 3 条（第 1 条必须是"多少小时内联系谁、说什么"）；
+  4. 最后调用 crm_create_follow_up（bizType=2, bizId=<客户编号>）写入一条跟进记录，
+     内容以"【AI 流失预警】"开头，摘要风险等级与首个挽回动作。
+paramsSchema:
+  type: object
+  properties:
+    customerId:
+      type: string
+      title: 客户编号
+  required: [customerId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: customerId
+    title: 当前客户
+    required: true
+tools: [crm_customer_facts, crm_get_customer, crm_create_follow_up]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

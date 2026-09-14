@@ -1,0 +1,197 @@
+# ================================
+# 宇擎后端 yudao-server Docker Compose 配置
+# ================================
+# 用于在目标服务器一键部署 MySQL、Redis 和后端应用
+#
+# 使用方法：
+#   1. 将此文件上传到目标服务器 /data/app/yudao-server/
+#   2. 修改环境变量中的密码等敏感信息
+#   3. 执行 docker-compose up -d 启动所有服务
+#
+# 注意事项：
+#   - 首次启动前需要先构建 yudao-server 镜像
+#   - 数据库数据持久化到 /data/mysql/data
+#   - Redis 数据持久化到 /data/redis/data
+#   - 应用日志持久化到 /data/app/logs
+
+name: ruoyi-office
+
+# 定义网络
+networks:
+  ruoyi-network:
+    driver: bridge
+
+# 定义数据卷
+volumes:
+  mysql-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/mysql/data
+  redis-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /data/redis/data
+
+services:
+  # ==================== MySQL 数据库 ====================
+  mysql:
+    image: mysql:8.0.33
+    container_name: mysql
+    restart: always
+    networks:
+      - ruoyi-network
+    ports:
+      - "3306:3306"
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-YourStrongPassword123!}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ruoyi-office}
+    volumes:
+      # 数据持久化
+      - /data/mysql/data:/var/lib/mysql
+      # 自定义配置
+      - /data/mysql/conf/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      # 初始化脚本（首次启动时执行）
+      - /data/mysql/init:/docker-entrypoint-initdb.d:ro
+    command:
+      - --default-authentication-plugin=mysql_native_password
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --explicit_defaults_for_timestamp=true
+      - --lower_case_table_names=1
+      - --max_connections=500
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-YourStrongPassword123!}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ==================== Redis 缓存 ====================
+  redis:
+    image: redis:7.2
+    container_name: redis
+    restart: always
+    networks:
+      - ruoyi-network
+    ports:
+      - "6379:6379"
+    volumes:
+      # 数据持久化
+      - /data/redis/data:/data
+      # 自定义配置
+      - /data/redis/conf/redis.conf:/etc/redis/redis.conf:ro
+    command: redis-server /etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== 后端应用 ====================
+  yudao-server:
+    image: yudao-server:latest
+    container_name: yudao-server
+    restart: always
+    networks:
+      - ruoyi-network
+    ports:
+      - "48080:48080"
+    environment:
+      TZ: Asia/Shanghai
+      # Spring 配置
+      SPRING_PROFILES_ACTIVE: prod
+      # JVM 配置
+      JAVA_OPTS: ${JAVA_OPTS:--Xms512m -Xmx1024m -Djava.security.egd=file:/dev/./urandom}
+      # 数据库配置（使用容器名作为主机名）
+      MYSQL_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-ruoyi-office}?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true&rewriteBatchedStatements=true
+      MYSQL_USERNAME: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-YourStrongPassword123!}
+      # Redis 配置（使用容器名作为主机名）
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DATABASE: 0
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    volumes:
+      # 日志持久化
+      - /data/app/logs:/yudao-server/logs
+      # 外部配置（可选，用于覆盖内置配置）
+      # - /data/app/config:/yudao-server/config:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:48080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+# ==================== 使用说明 ====================
+#
+# 1. 准备工作：
+#    # 创建必要目录
+#    mkdir -p /data/mysql/{data,conf,init}
+#    mkdir -p /data/redis/{data,conf}
+#    mkdir -p /data/app/logs
+#
+#    # 创建 MySQL 配置文件
+#    cat > /data/mysql/conf/my.cnf << 'EOF'
+#    [mysqld]
+#    character-set-server=utf8mb4
+#    collation-server=utf8mb4_general_ci
+#    [client]
+#    default-character-set=utf8mb4
+#    EOF
+#
+#    # 创建 Redis 配置文件
+#    cat > /data/redis/conf/redis.conf << 'EOF'
+#    bind 0.0.0.0
+#    port 6379
+#    appendonly yes
+#    dir /data
+#    EOF
+#
+# 2. 构建应用镜像（在 Jenkins 传输 JAR 后执行）：
+#    cd /data/app/yudao-server
+#    docker build -t yudao-server:latest .
+#
+# 3. 启动所有服务：
+#    docker-compose up -d
+#
+# 4. 查看服务状态：
+#    docker-compose ps
+#    docker-compose logs -f yudao-server
+#
+# 5. 停止所有服务：
+#    docker-compose down
+#
+# 6. 重启应用（不影响数据库）：
+#    docker-compose restart yudao-server
+#
+# 7. 查看服务日志：
+#    docker-compose logs -f mysql
+#    docker-compose logs -f redis
+#    docker-compose logs -f yudao-server
+#
+# ==================== 生产环境建议 ====================
+#
+# 1. 修改默认密码：
+#    export MYSQL_ROOT_PASSWORD="YourSecurePassword"
+#    docker-compose up -d
+#
+# 2. 或创建 .env 文件：
+#    cat > .env << 'EOF'
+#    MYSQL_ROOT_PASSWORD=YourSecurePassword
+#    MYSQL_DATABASE=ruoyi-office
+#    REDIS_PASSWORD=
+#    JAVA_OPTS=-Xms1g -Xmx2g
+#    EOF
+#
+# 3. 建议将数据库和 Redis 端口只对内网开放，不对外暴露

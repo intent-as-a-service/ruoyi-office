@@ -1,0 +1,29 @@
+id: scm.stock.check
+name: 查询供应链库存
+description: 跨系统意图示例：调用供应链系统查询产品库存（需装配意图网关）
+aliases:
+  - 查一下库存
+  - 还有多少货
+  - 库存够不够
+  - 供应链查库存
+version: 1
+scope: remote
+pages:
+  - wms/stock
+targetSystem: scm
+cardType: table
+promptTemplate: |
+  你是供应链查询助理。根据工具返回的库存数据生成结果。
+paramsSchema:
+  type: object
+  properties:
+    productKeyword:
+      type: string
+      title: 产品关键词
+  required: [productKeyword]
+context: []
+tools: []
+policy:
+  roles: ["*"]
+  timeoutSeconds: 60
+  maxRetries: 0

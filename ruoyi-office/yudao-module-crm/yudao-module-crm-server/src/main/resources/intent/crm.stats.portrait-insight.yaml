@@ -1,0 +1,40 @@
+id: crm.stats.portrait-insight
+name: 客户画像洞察
+description: 从等级、行业、来源、地区分布给出客户结构与投放建议
+aliases:
+  - 我的客户都是什么类型
+  - 客户画像
+  - 客户结构分析
+  - 客户都从哪来
+  - 帮我整理一下这个客户的完整画像
+version: 1
+scope: local
+pages:
+  - crm/statistics/portrait
+cardType: analysis
+promptTemplate: |
+  你是市场与客户策略分析师。依次调用：crm_stats_customer_structure（按等级/行业/来源/地区的客户分布与成交数）
+  → crm_search_customers（客户明细，用于验证头部客户）→ crm_stats_funnel（商机与赢单情况）。
+  输出四段：
+  ① 客户结构：用 table 列出分布占比最高的 2 个维度（例如行业与来源）及各自成交情况；
+  ② 高价值特征：指出"成交率最高的客户长什么样"（等级 × 行业 × 来源的组合），只依据数据说话；
+  ③ 投放建议：给 3 条获客与资源投放建议（往哪个行业/来源投、为什么）；
+  ④ 风险提示：一句话指出结构上最需要警惕的问题（如过度依赖单一行业）。
+  所有占比与数量必须来自工具返回，禁止估算。
+paramsSchema:
+  type: object
+  properties:
+    days:
+      type: string
+      title: 统计天数
+      description: 可选，默认 90 天；填 0 表示本年度
+  required: []
+context:
+  - key: page
+    title: 来源页面
+    required: false
+tools: [crm_stats_customer_structure, crm_search_customers, crm_stats_funnel]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

@@ -1,0 +1,38 @@
+id: crm.backlog.weekly-review
+name: 本周跟进复盘
+description: 本周跟进覆盖、推进的商机、风险客户与下周重点
+aliases:
+  - 本周干得怎么样
+  - 这周跟进复盘
+  - 一周总结
+  - 本周总结
+version: 1
+scope: local
+pages:
+  - crm/backlog
+cardType: analysis
+promptTemplate: |
+  你是 CRM 销售主管，帮销售做本周复盘。
+  1. 调用 crm_backlog_facts 取当前待办全貌；
+  2. 调用 crm_stats_rank（dimension=followCount）看跟进次数分布，判断投入是否集中在大客户上；
+  3. 调用 crm_list_receivable_plans（remindType=2）取逾期回款计划。
+  输出四段：
+  ① 本周进展（用数字：待跟进/待审核/逾期各多少）；
+  ② 推进中的商机与卡点；
+  ③ 风险客户清单（逾期回款 + 长期未联系）；
+  ④ 下周 3 个重点动作。
+  所有数字必须来自工具返回；没有数据支撑的结论不要写。
+paramsSchema:
+  type: object
+  properties:
+    {}
+  required: []
+context:
+  - key: page
+    title: 来源页面
+    required: false
+tools: [crm_backlog_facts, crm_stats_rank, crm_list_clues, crm_list_receivable_plans]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

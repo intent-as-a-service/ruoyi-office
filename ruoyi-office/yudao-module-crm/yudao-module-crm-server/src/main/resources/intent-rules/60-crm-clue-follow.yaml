@@ -1,0 +1,23 @@
+# =============================================================
+# 文件名前缀 = 待办分组的展示优先级（越小越靠前；面板默认只并排展示 5 组）
+# CRM 事实规则：分配给我的线索未跟进 → 提示 + 一键质量评分
+#
+# 一条规则 = 查询(dataset) + 条件(filter) + 输出模板(badge/items) + 参数映射(params)
+# 事实由 CrmIntentFactProvider 供给（口径与「待办事项」页一致）。
+# 改文案、改阈值、改挂载页面只动本文件即可。
+# =============================================================
+- id: crm.clue.follow
+  intent: crm.clue.quality-score
+  dataset: crm.follow-clues
+  scope:
+    page: ["crm/clue", "crm/clue/*", "crm/backlog", ""]
+  badge:
+    text: "{{count}} 条线索待跟进"
+    level: warning
+  items:
+    limit: 5
+    title: "线索「{{row.name}}」待跟进"
+    subtitle: "来源 {{row.source}} · 上次联系 {{row.contactLastTime | date}}"
+    reason: "分配给我的线索还没跟进，建议先做质量评分再定投入节奏"
+    params:
+      clueId: { from: row.id, type: string }

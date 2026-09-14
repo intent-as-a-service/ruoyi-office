@@ -1,0 +1,44 @@
+{
+  "name": "intent-ui-sdk",
+  "version": "0.4.0",
+  "description": "内嵌 AI 意图组件（框架无关）：悬浮入口 / 意图菜单 / 槽位表单 / 待办与推荐 / 结果卡片 / 执行轨迹 / 历史 / 反馈",
+  "keywords": ["intent", "ai", "sdk", "ui", "intent-as-a-service", "agent", "copilot"],
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "js/intent-ui-sdk.js",
+  "module": "js/intent-ui-sdk.mjs",
+  "types": "js/intent-ui-sdk.d.ts",
+  "unpkg": "js/intent-ui-sdk.js",
+  "jsdelivr": "js/intent-ui-sdk.js",
+  "sideEffects": ["js/intent-ui-sdk.js", "css/intent-ui.css"],
+  "exports": {
+    ".": {
+      "types": "./js/intent-ui-sdk.d.ts",
+      "import": "./js/intent-ui-sdk.mjs",
+      "default": "./js/intent-ui-sdk.js"
+    },
+    "./js/intent-ui-sdk.js": "./js/intent-ui-sdk.js",
+    "./css/intent-ui.css": "./css/intent-ui.css",
+    "./package.json": "./package.json"
+  },
+  "files": ["js", "css", "README.md", "LICENSE"],
+  "scripts": {
+    "sync": "node scripts/sync.mjs",
+    "sync:check": "node scripts/sync.mjs --check"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/intent-as-a-service/intent-ui-sdk.git"
+  },
+  "homepage": "https://github.com/intent-as-a-service/intent-ui-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/intent-as-a-service/intent-ui-sdk/issues"
+  },
+  "author": "intent-as-a-service",
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

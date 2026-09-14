@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>cn.iocoder.cloud</groupId>
+        <artifactId>yudao</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>yudao-module-intent</artifactId>
+
+    <name>${project.artifactId}</name>
+    <description>
+        内嵌 AI 意图 SDK 的宿主装配模块（平台侧，与业务解耦）。
+        提供：意图目录 / 执行 / 留痕 / 反馈 的 REST API，以及意图 UI 静态资源。
+        业务系统只需声明 IntentSpec 与宿主工具（HostTool），即可获得完整意图能力。
+    </description>
+
+    <dependencies>
+        <!-- 内嵌 AI 意图 SDK（可组装网关：M2 装配 intent-sdk-gateway 即解锁跨系统意图） -->
+        <dependency>
+            <groupId>dev.intent</groupId>
+            <artifactId>intent-sdk-core</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
+        </dependency>
+        <!-- 推理内核适配器（pi-java）：仅平台侧依赖；业务模块只依赖 SDK 核心与工具契约 -->
+        <dependency>
+            <groupId>dev.intent</groupId>
+            <artifactId>intent-sdk-pi</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
+        </dependency>
+        <!-- 宿主 SPI：身份 / 权限 / 上下文桥 / 仓储 / 声明式事实规则（一步接入，替代平台样板代码） -->
+        <dependency>
+            <groupId>dev.intent</groupId>
+            <artifactId>intent-sdk-host</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.intent</groupId>
+            <artifactId>intent-sdk-gateway</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.intent</groupId>
+            <artifactId>intent-protocol</artifactId>
+            <version>0.1.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- Web / 安全 / 租户 -->
+        <dependency>
+            <groupId>cn.iocoder.cloud</groupId>
+            <artifactId>yudao-spring-boot-starter-env</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.iocoder.cloud</groupId>
+            <artifactId>yudao-spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.iocoder.cloud</groupId>
+            <artifactId>yudao-spring-boot-starter-biz-tenant</artifactId>
+        </dependency>
+
+        <!-- 意图上架与角色配置（DB 存储） -->
+        <dependency>
+            <groupId>cn.iocoder.cloud</groupId>
+            <artifactId>yudao-spring-boot-starter-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>cn.iocoder.cloud</groupId>
+            <artifactId>yudao-module-system-api</artifactId>
+            <version>${revision}</version>
+        </dependency>
+    </dependencies>
+</project>

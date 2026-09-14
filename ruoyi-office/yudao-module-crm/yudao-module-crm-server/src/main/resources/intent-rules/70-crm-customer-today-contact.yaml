@@ -1,0 +1,22 @@
+# =============================================================
+# 文件名前缀 = 待办分组的展示优先级（越小越靠前；面板默认只并排展示 5 组）
+# CRM 事实规则：今日需联系的客户 → 提示 + 一键排今日优先级
+#
+# 一条规则 = 查询(dataset) + 条件(filter) + 输出模板(badge/items) + 参数映射(params)
+# 事实由 CrmIntentFactProvider 供给（口径与「待办事项」页一致）。
+# 改文案、改阈值、改挂载页面只动本文件即可。
+# =============================================================
+- id: crm.customer.today-contact
+  intent: crm.backlog.today-priority
+  dataset: crm.today-contact-customers
+  scope:
+    page: ["crm/*", ""]
+  badge:
+    text: "今天有 {{count}} 位客户需要联系"
+    level: info
+  items:
+    limit: 3
+    title: "客户「{{row.name}}」今日需联系"
+    subtitle: "上次联系 {{row.contactLastTime | date}}"
+    reason: "今天到了约定回访日，建议先把这几个电话打完"
+    params: {}

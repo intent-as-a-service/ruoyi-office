@@ -1,0 +1,327 @@
+/* ============================================================
+   Intent UI SDK · 设计系统 v0.3.1
+   嵌入式 AI 意图组件的企业级样式（与宿主系统同源挂载）
+   类名与 intent-ui-sdk.js 一一对应，改包名/换宿主不需要动这里
+   ============================================================ */
+
+:root {
+  --iui-primary: #2f6bff;
+  --iui-primary-weak: #eef3ff;
+  --iui-primary-dark: #1e4fd6;
+  --iui-success: #16a34a;
+  --iui-success-weak: #f0fdf4;
+  --iui-warning: #d97706;
+  --iui-warning-weak: #fffbeb;
+  --iui-warning-border: #fde8c8;
+  --iui-danger: #dc2626;
+  --iui-danger-weak: #fef2f2;
+  --iui-text: #111827;
+  --iui-text-2: #4b5563;
+  --iui-text-3: #9ca3af;
+  --iui-border: #e5e7eb;
+  --iui-bg: #f7f8fa;
+  --iui-card: #ffffff;
+  --iui-radius: 12px;
+  --iui-radius-sm: 8px;
+  --iui-shadow: 0 1px 3px rgba(17, 24, 39, .06), 0 8px 24px rgba(17, 24, 39, .06);
+  --iui-shadow-lg: 0 12px 48px rgba(17, 24, 39, .18);
+  --iui-font: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif;
+  /* 层级：宿主可用 configure({ zIndex }) 整体抬高（SDK 会按 fab/mask/drawer/modal 依次 +1） */
+  --iui-z-fab: 850;
+  --iui-z-mask: 851;
+  --iui-z-drawer: 852;
+  --iui-z-modal: 853;
+}
+
+.iui-root, .iui-root * { box-sizing: border-box; font-family: var(--iui-font); }
+.iui-root { color: var(--iui-text); }
+
+/* ---------- 悬浮入口（可拖动） ---------- */
+.iui-fab {
+  position: fixed; right: 24px; bottom: 96px; z-index: var(--iui-z-fab);
+  width: 48px; height: 48px; padding: 0; border: none; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--iui-primary); color: #fff; font-size: 15px; font-weight: 700;
+  letter-spacing: .02em; line-height: 1; cursor: grab; user-select: none; touch-action: none;
+  box-shadow: 0 8px 24px rgba(47, 107, 255, .35);
+  /* 悬浮球是 fixed + 阴影的小圆钮：悬停时若让浏览器重算阴影/整层重绘，部分机器上会闪一下。
+     这里只过渡底色，并把按钮提升为独立合成层，避免悬停触发重绘抖动。 */
+  transition: background-color .2s ease;
+  transform: translateZ(0); backface-visibility: hidden; -webkit-backface-visibility: hidden;
+}
+.iui-fab:hover { /* 悬停只换底色，阴影保持不变 */ background: var(--iui-primary-dark); }
+.iui-fab:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.iui-fab-dragging { cursor: grabbing; }
+.iui-fab-hidden { display: none; }
+.iui-fab-text { font: inherit; }
+.iui-fab-dot {
+  position: absolute; top: 6px; right: 8px; width: 8px; height: 8px; border-radius: 50%;
+  background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, .25);
+}
+
+/* ---------- 悬浮抽屉（SDK 自带的意图面板宿主） ---------- */
+.iui-drawer-wrap { position: fixed; inset: 0; z-index: var(--iui-z-drawer); pointer-events: none; }
+.iui-drawer-mask { position: absolute; inset: 0; z-index: var(--iui-z-mask); background: rgba(17, 24, 39, .35);
+  opacity: 0; transition: opacity .2s ease; }
+.iui-drawer-panel { position: absolute; top: 0; right: 0; bottom: 0; z-index: var(--iui-z-drawer);
+  width: 920px; max-width: 100vw; background: #fff; box-shadow: var(--iui-shadow-lg);
+  display: flex; flex-direction: column; transform: translateX(100%); transition: transform .22s ease; }
+.iui-drawer-wrap.on { pointer-events: auto; }
+.iui-drawer-wrap.on .iui-drawer-mask { opacity: 1; }
+.iui-drawer-wrap.on .iui-drawer-panel { transform: none; }
+.iui-drawer-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 15px 20px; border-bottom: 1px solid var(--iui-border); }
+.iui-drawer-title { font-size: 15px; font-weight: 700; }
+.iui-drawer-tools { display: flex; align-items: center; gap: 14px; }
+.iui-drawer-hist { font-size: 12.5px; color: var(--iui-primary); text-decoration: none; cursor: pointer; }
+.iui-drawer-hist:hover { text-decoration: underline; }
+.iui-close { border: none; background: none; padding: 0 2px; font-size: 22px; line-height: 1;
+  color: var(--iui-text-3); cursor: pointer; }
+.iui-close:hover { color: var(--iui-text); }
+.iui-drawer-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px 24px;
+  display: flex; flex-direction: column; gap: 10px; }
+.iui-in-drawer { width: 100%; }
+
+/* ---------- 面板骨架 ---------- */
+.iui-panel { display: flex; flex-direction: column; gap: 12px; }
+.iui-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.iui-panel-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.iui-panel-title .iui-spark { width: 18px; height: 18px; flex: none; }
+.iui-panel-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--iui-text-3); }
+.iui-hist-link { font-size: 12.5px; color: var(--iui-primary); text-decoration: none; cursor: pointer; }
+.iui-hist-link:hover { text-decoration: underline; }
+.iui-scroll { display: flex; flex-direction: column; gap: 14px; }
+
+/* ---------- 分区 / 标签 ---------- */
+.iui-sec { display: flex; flex-direction: column; gap: 10px; }
+.iui-sec-head { display: flex; align-items: center; gap: 8px; }
+.iui-sec-title { font-size: 12.5px; font-weight: 700; color: var(--iui-text-2); }
+.iui-tag { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; white-space: nowrap; flex: none; }
+.iui-tag-remote { background: var(--iui-warning-weak); color: var(--iui-warning); }
+.iui-tag-count { background: var(--iui-bg); color: var(--iui-text-2); }
+.iui-tag-blue, .iui-tag-info { background: var(--iui-primary-weak); color: var(--iui-primary); }
+.iui-tag-orange, .iui-tag-warning, .iui-tag-warn { background: var(--iui-warning-weak); color: var(--iui-warning); }
+.iui-tag-ok, .iui-tag-success { background: var(--iui-success-weak); color: var(--iui-success); }
+.iui-tag-err, .iui-tag-danger { background: var(--iui-danger-weak); color: var(--iui-danger); }
+
+/* ---------- 意图按钮组 ---------- */
+.iui-btn-group { display: flex; flex-direction: column; gap: 8px; }
+.iui-entry { display: flex; align-items: stretch; gap: 8px; }
+.iui-entry .iui-btn { flex: 1; min-width: 0; }
+.iui-btn {
+  display: flex; align-items: center; gap: 10px; text-align: left; width: 100%;
+  padding: 11px 14px; border: 1px solid var(--iui-border); border-radius: var(--iui-radius-sm);
+  background: var(--iui-card); cursor: pointer; font: inherit; color: var(--iui-text);
+  transition: border-color .15s ease, background-color .15s ease;
+}
+.iui-btn:hover:not(:disabled) { border-color: var(--iui-primary); background: var(--iui-primary-weak); }
+.iui-btn:disabled { opacity: .5; cursor: not-allowed; }
+.iui-btn .iui-btn-ico {
+  width: 32px; height: 32px; border-radius: 8px; background: var(--iui-primary-weak);
+  display: flex; align-items: center; justify-content: center; font-size: 16px; flex: none;
+}
+.iui-btn-body { flex: 1; min-width: 0; }
+.iui-btn-name-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.iui-btn-name { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iui-btn-desc { font-size: 12px; color: var(--iui-text-3); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iui-btn .iui-tag-remote { flex: none; }
+.iui-slot { flex: none; width: 40px; border: 1px solid var(--iui-border); border-radius: var(--iui-radius-sm);
+  background: #fff; color: var(--iui-text-2); font-size: 14px; cursor: pointer; }
+.iui-slot:hover { border-color: var(--iui-primary); color: var(--iui-primary); }
+
+/* ---------- 小按钮 ---------- */
+.iui-mini { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--iui-border); background: #fff; color: var(--iui-text-2); cursor: pointer;
+  transition: border-color .12s ease, color .12s ease; }
+.iui-mini:hover:not(:disabled) { border-color: var(--iui-primary); color: var(--iui-primary); }
+.iui-mini:disabled { opacity: .45; cursor: not-allowed; }
+.iui-mini.on { background: var(--iui-primary-weak); border-color: var(--iui-primary); color: var(--iui-primary); }
+.iui-collapse { margin-left: auto; }
+
+/* ---------- 执行中状态 ---------- */
+.iui-running {
+  display: none; align-items: center; gap: 10px; padding: 12px 14px;
+  border: 1px dashed var(--iui-primary); border-radius: var(--iui-radius-sm);
+  background: var(--iui-primary-weak); font-size: 13px; color: var(--iui-primary-dark);
+}
+.iui-running.on { display: flex; }
+.iui-spinner { width: 16px; height: 16px; border: 2px solid var(--iui-primary);
+  border-top-color: transparent; border-radius: 50%; animation: iui-spin .8s linear infinite; flex: none; }
+@keyframes iui-spin { to { transform: rotate(360deg); } }
+
+/* ---------- 结果卡片 ---------- */
+.iui-card {
+  background: var(--iui-card); border: 1px solid var(--iui-border);
+  border-radius: var(--iui-radius); box-shadow: var(--iui-shadow); overflow: hidden;
+}
+.iui-card-head { padding: 14px 16px 0; }
+.iui-card-headrow { display: flex; align-items: center; gap: 8px; }
+.iui-card-kicker { font-size: 11px; font-weight: 700; color: var(--iui-primary); letter-spacing: .06em; }
+.iui-card-title { font-size: 16px; font-weight: 700; margin-top: 6px; }
+.iui-card-summary { font-size: 13px; color: var(--iui-text-2); line-height: 1.7; padding: 8px 16px 0; }
+.iui-card-body { padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+.iui-card-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  padding: 12px 16px 14px; border-top: 1px dashed var(--iui-border); }
+.iui-foot-note { font-size: 11px; color: var(--iui-text-3); margin-left: auto;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
+.iui-block-title { font-size: 12.5px; font-weight: 700; color: var(--iui-text-2); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px; }
+.iui-block-title::before { content: ""; width: 3px; height: 12px; background: var(--iui-primary); border-radius: 2px; }
+
+.iui-text { font-size: 13px; line-height: 1.75; color: var(--iui-text-2); white-space: pre-wrap; }
+.iui-kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.iui-kv-item { background: var(--iui-bg); border-radius: var(--iui-radius-sm); padding: 8px 10px; }
+.iui-kv-label { font-size: 11px; color: var(--iui-text-3); }
+.iui-kv-value { font-size: 13px; font-weight: 600; margin-top: 2px; word-break: break-all; }
+.iui-list { display: flex; flex-direction: column; gap: 6px; }
+.iui-list-item { display: flex; gap: 8px; font-size: 13px; color: var(--iui-text-2); line-height: 1.6; }
+.iui-list-item::before { content: "•"; color: var(--iui-primary); flex: none; }
+.iui-table-wrap { overflow-x: auto; border: 1px solid var(--iui-border); border-radius: var(--iui-radius-sm); }
+.iui-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.iui-table th, .iui-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--iui-border); }
+.iui-table th { background: var(--iui-bg); font-weight: 600; color: var(--iui-text-2); white-space: nowrap; }
+.iui-table tr:last-child td { border-bottom: none; }
+.iui-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.iui-badge { font-size: 12px; padding: 3px 10px; border-radius: 999px;
+  background: var(--iui-bg); color: var(--iui-text-2); }
+.iui-badge.info { background: var(--iui-primary-weak); color: var(--iui-primary); }
+.iui-badge.warning { background: var(--iui-warning-weak); color: var(--iui-warning); }
+.iui-badge.danger { background: var(--iui-danger-weak); color: var(--iui-danger); }
+.iui-badge.success { background: var(--iui-success-weak); color: var(--iui-success); }
+.iui-dim { color: var(--iui-text-3); }
+
+/* ---------- 下一步：补充要求重跑 / AI 推荐 / 待办分组 ---------- */
+.iui-group { border: 1px solid var(--iui-border); border-radius: var(--iui-radius-sm);
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.iui-group-dashed { border-style: dashed; background: #fbfcff; }
+.iui-group-blue { border-color: #dbe6ff; background: #f7faff; }
+.iui-group-orange { border-color: var(--iui-warning-border); background: #fffdf7; padding: 0; overflow: hidden; }
+.iui-group-title { font-size: 12px; font-weight: 700; color: var(--iui-text-2); }
+.iui-group-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 11px 12px;
+  border: none; background: none; font: inherit; text-align: left; cursor: pointer; }
+.iui-group-toggle:hover { background: rgba(217, 119, 6, .06); }
+.iui-group-title-inline { font-size: 12.5px; font-weight: 700; color: var(--iui-text-2); }
+.iui-group-hint { margin-left: auto; font-size: 11px; color: var(--iui-text-3); }
+.iui-caret { font-size: 11px; color: var(--iui-text-3); }
+.iui-group-body { display: flex; flex-direction: column; gap: 6px; }
+.iui-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.iui-chip { font: inherit; font-size: 12px; padding: 5px 10px; border-radius: 999px; cursor: pointer;
+  background: #fff; color: var(--iui-primary-dark); border: 1px dashed var(--iui-primary); }
+.iui-chip:hover { background: var(--iui-primary-weak); }
+
+/* ---------- 口语匹配框 + 当前对象快捷条 ---------- */
+.iui-quick { border: 1px solid #dbe6ff; border-radius: var(--iui-radius-sm); padding: 10px 12px;
+  background: linear-gradient(180deg, #f7faff, #fff); display: flex; flex-direction: column; gap: 8px; }
+.iui-quick-head { font-size: 12px; font-weight: 700; color: var(--iui-text-2); }
+.iui-chip-quick { border-color: #c7d9ff; background: #fff; font-weight: 600; }
+.iui-chip-quick:hover { border-color: var(--iui-primary); background: var(--iui-primary-weak); }
+.iui-search { display: flex; align-items: center; gap: 8px; }
+.iui-search-input { flex: 1; min-width: 0; padding: 9px 12px; font: inherit; font-size: 13px;
+  color: var(--iui-text); background: var(--iui-card); border: 1px solid var(--iui-border);
+  border-radius: var(--iui-radius-sm); }
+.iui-search-input::placeholder { color: var(--iui-text-3); }
+.iui-search-input:focus { outline: none; border-color: var(--iui-primary);
+  box-shadow: 0 0 0 3px var(--iui-primary-weak); }
+.iui-search-clear { flex: none; padding: 8px 12px; font: inherit; font-size: 12px; cursor: pointer;
+  color: var(--iui-text-3); background: none; border: 1px solid var(--iui-border);
+  border-radius: var(--iui-radius-sm); }
+.iui-search-clear:hover { color: var(--iui-text); border-color: var(--iui-text-3); }
+.iui-match-hint { font-size: 12px; color: var(--iui-text-3); }
+.iui-btn-hit { display: block; margin-top: 3px; font-size: 11.5px; color: var(--iui-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iui-next { display: flex; gap: 8px; align-items: flex-start; width: 100%; text-align: left;
+  padding: 9px 11px; border: 1px solid #dbe6ff; border-radius: var(--iui-radius-sm);
+  background: #fff; font: inherit; color: var(--iui-text); cursor: pointer; }
+.iui-next:hover { border-color: var(--iui-primary); }
+.iui-next-ico { flex: none; font-size: 13px; line-height: 1.4; }
+.iui-next-body { display: flex; flex-direction: column; min-width: 0; }
+.iui-next-title { font-size: 13px; font-weight: 600; }
+.iui-next-desc { font-size: 11.5px; color: var(--iui-text-3); margin-top: 2px; }
+.iui-more { font-size: 11.5px; color: var(--iui-text-3); }
+.iui-todo-table { width: 100%; border-collapse: collapse; }
+.iui-todo-table td { padding: 9px 12px; border-top: 1px dashed var(--iui-warning-border); vertical-align: top; }
+.iui-todo-act { width: 64px; text-align: right; white-space: nowrap; }
+.iui-todo-title { font-size: 12.5px; font-weight: 600; }
+.iui-todo-count { font-size: 11px; font-weight: 400; color: var(--iui-text-3); }
+.iui-todo-sub { font-size: 11px; color: var(--iui-text-3); margin-top: 2px; line-height: 1.5; }
+.iui-pager { display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 8px 12px; border-top: 1px dashed var(--iui-warning-border); }
+.iui-pager-text { font-size: 11.5px; color: var(--iui-text-3); }
+
+/* ---------- 步骤轨迹 ---------- */
+.iui-steps { display: none; padding: 10px 16px 14px; border-top: 1px dashed var(--iui-border); }
+.iui-steps.on { display: block; }
+.iui-step { display: flex; gap: 10px; font-size: 12px; padding: 5px 0; color: var(--iui-text-2);
+  border-bottom: 1px dashed var(--iui-bg); align-items: baseline; }
+.iui-step:last-child { border-bottom: none; }
+.iui-step-kind { flex: none; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px;
+  background: var(--iui-bg); color: var(--iui-text-3); }
+.iui-step-kind.tool { background: var(--iui-primary-weak); color: var(--iui-primary); }
+.iui-step-name { font-weight: 600; flex: none; }
+.iui-step-detail { color: var(--iui-text-3); word-break: break-all; }
+
+/* ---------- 弹层：表单 / 历史 ---------- */
+.iui-mask { position: fixed; inset: 0; z-index: var(--iui-z-modal); background: rgba(17, 24, 39, .45);
+  display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+.iui-modal { width: min(560px, calc(100vw - 40px)); max-height: calc(100vh - 80px); overflow-y: auto;
+  background: #fff; border-radius: 16px; box-shadow: var(--iui-shadow-lg); animation: iui-pop .18s ease; }
+@keyframes iui-pop { from { transform: scale(.96) translateY(8px); opacity: 0; } }
+.iui-modal-head { padding: 18px 20px 0; }
+.iui-modal-title { font-size: 16px; font-weight: 700; }
+.iui-modal-desc { font-size: 12.5px; color: var(--iui-text-3); margin-top: 4px; }
+.iui-modal-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+.iui-field { display: block; }
+.iui-field-label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
+.iui-req { color: var(--iui-danger); margin-left: 3px; }
+.iui-input { width: 100%; padding: 9px 12px; border: 1px solid var(--iui-border);
+  border-radius: var(--iui-radius-sm); font-size: 13.5px; font-family: var(--iui-font);
+  color: var(--iui-text); background: #fff; outline: none; transition: border-color .12s ease; }
+.iui-input:focus { border-color: var(--iui-primary); }
+.iui-datalist { display: none; }
+.iui-modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 0 20px 20px; }
+.iui-btn-primary { padding: 9px 22px; border-radius: var(--iui-radius-sm); border: none;
+  background: var(--iui-primary); color: #fff; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.iui-btn-primary:hover { background: var(--iui-primary-dark); }
+.iui-btn-primary:disabled { opacity: .55; cursor: wait; }
+.iui-btn-ghost { padding: 9px 22px; border-radius: var(--iui-radius-sm); border: 1px solid var(--iui-border);
+  background: #fff; color: var(--iui-text-2); font: inherit; font-size: 13.5px; cursor: pointer; }
+.iui-btn-ghost:hover { border-color: var(--iui-primary); color: var(--iui-primary); }
+.iui-form-err { background: var(--iui-danger-weak); color: var(--iui-danger); font-size: 12.5px;
+  padding: 8px 12px; border-radius: var(--iui-radius-sm); }
+.iui-form-err:empty { display: none; }
+
+/* ---------- 历史 ---------- */
+.iui-drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 92vw); background: #fff;
+  box-shadow: var(--iui-shadow-lg); display: flex; flex-direction: column; animation: iui-slide .2s ease; }
+@keyframes iui-slide { from { transform: translateX(40px); opacity: .4; } }
+.iui-hist-list { display: flex; flex-direction: column; gap: 8px; }
+.iui-hist-item { border: 1px solid var(--iui-border); border-radius: var(--iui-radius-sm);
+  padding: 10px 12px; background: #fff; cursor: pointer; transition: border-color .12s ease; }
+.iui-hist-item:hover { border-color: var(--iui-primary); }
+.iui-hist-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.iui-hist-intent { font-size: 13px; font-weight: 600; }
+.iui-hist-sub { font-size: 11.5px; color: var(--iui-text-3); margin-top: 4px; }
+.iui-pre { margin: 10px 0 0; padding: 12px; background: var(--iui-bg); border-radius: var(--iui-radius-sm);
+  font-family: ui-monospace, Consolas, "Courier New", monospace; font-size: 11.5px; line-height: 1.6;
+  white-space: pre-wrap; word-break: break-all; overflow: auto; max-height: 60vh; }
+
+/* ---------- 空态 / 提示 ---------- */
+.iui-empty { text-align: center; color: var(--iui-text-3); font-size: 12.5px; padding: 24px 0; }
+.iui-alert { display: flex; gap: 8px; padding: 10px 12px; border-radius: var(--iui-radius-sm);
+  font-size: 12.5px; line-height: 1.6; }
+.iui-alert-ico { flex: none; }
+.iui-alert-sub { opacity: .85; }
+.iui-alert.err { background: var(--iui-danger-weak); color: var(--iui-danger); }
+.iui-alert.warn { background: var(--iui-warning-weak); color: var(--iui-warning); }
+
+/* ---------- 轻量提示（执行完成 / 失败） ---------- */
+.iui-toasts { position: fixed; left: 50%; bottom: 36px; transform: translateX(-50%); z-index: 2000;
+  display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.iui-toast { background: #111827; color: #fff; font-size: 12.5px; padding: 9px 16px; border-radius: 999px;
+  box-shadow: var(--iui-shadow-lg); transition: opacity .3s ease, transform .3s ease; }
+.iui-toast.out { opacity: 0; transform: translateY(6px); }
+.iui-toast.ok { background: var(--iui-success); }
+.iui-toast.err { background: var(--iui-danger); }

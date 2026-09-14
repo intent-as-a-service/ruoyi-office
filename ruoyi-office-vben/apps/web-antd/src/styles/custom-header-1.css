@@ -1,0 +1,28 @@
+/* 自定义深色顶栏颜色样式 */
+
+/* 强制设置顶栏为深蓝色 */
+.vben-layout-header,
+header,
+[class*='header'],
+.vben-admin-layout .vben-layout-header {
+  background: hsl(220deg 50% 20%) !important;
+  background-color: hsl(220deg 50% 20%) !important;
+}
+
+/* 顶栏文字颜色调整为白色 */
+.vben-layout-header,
+.vben-layout-header *,
+header,
+header * {
+  color: white !important;
+}
+
+/* 使用CSS变量方式（备用） */
+:root {
+  --header: 0 25% 15% !important;
+}
+
+/* 条件设置（如果偏好设置生效的话） */
+html[data-theme-semi-dark-header='true'] {
+  --header: var(--header-semi-dark);
+}

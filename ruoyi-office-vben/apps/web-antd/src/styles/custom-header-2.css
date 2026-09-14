@@ -1,0 +1,285 @@
+/* 美观的顶栏设计样式 */
+
+/* 主要顶栏样式 - 渐变背景 */
+.bg-header {
+  /* 现代渐变背景 - 从深蓝到浅蓝 */
+  background: linear-gradient(
+    135deg,
+    hsl(220deg 60% 35%) 0%,
+    hsl(210deg 55% 45%) 50%,
+    hsl(200deg 50% 55%) 100%
+  ) !important;
+
+  /* 边框效果 */
+  border-bottom: 1px solid rgb(255 255 255 / 10%) !important;
+
+  /* 添加微妙的阴影 */
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%) !important;
+
+  /* 背景毛玻璃效果（可选） */
+  backdrop-filter: blur(10px) !important;
+
+  /* 平滑过渡 */
+  transition: all 0.3s ease !important;
+}
+
+/* 顶栏文字样式优化 */
+.bg-header,
+.bg-header * {
+  color: rgb(255 255 255 / 95%) !important;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 10%) !important;
+}
+
+/* 菜单项悬停效果 - 重写CSS变量 */
+.bg-header .vben-menu,
+.vben-layout-header .vben-menu {
+  --menu-item-hover-color: #fff !important;
+  --menu-item-hover-background-color: rgb(255 255 255 / 15%) !important;
+  --menu-item-active-color: #fff !important;
+  --menu-item-active-background-color: rgb(255 255 255 / 20%) !important;
+  --menu-submenu-hover-color: #fff !important;
+  --menu-submenu-hover-background-color: rgb(255 255 255 / 15%) !important;
+  --menu-submenu-active-color: #fff !important;
+  --menu-submenu-active-background-color: rgb(255 255 255 / 20%) !important;
+}
+
+/* 菜单项悬停效果 - 兜底样式 */
+.vben-layout-header .vben-menu-item:hover,
+.vben-layout-header [class*='menu-item']:hover {
+  color: #fff !important;
+  background: rgb(255 255 255 / 15%) !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+}
+
+/* 激活状态的菜单项 */
+.vben-layout-header .vben-menu-item.is-active,
+.vben-layout-header [class*='menu-item'].is-active {
+  color: #fff !important;
+  background: rgb(255 255 255 / 15%) !important;
+  border-radius: 6px !important;
+}
+
+/* Logo区域优化 */
+.vben-layout-header .vben-logo {
+  filter: brightness(1.1) !important;
+}
+
+/* 搜索框样式优化 - 参照选择租户样式 */
+.vben-layout-header input[type='search'],
+.vben-layout-header .vben-input {
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  color: white !important;
+  background: rgb(255 255 255 / 12%) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 10%) !important;
+  backdrop-filter: blur(4px) !important;
+  transition: all 0.3s ease !important;
+}
+
+.vben-layout-header input[type='search']:hover,
+.vben-layout-header .vben-input:hover {
+  background: rgb(255 255 255 / 18%) !important;
+  border-color: rgb(255 255 255 / 35%) !important;
+  box-shadow: 0 4px 8px rgb(0 0 0 / 15%) !important;
+  transform: translateY(-1px) !important;
+}
+
+.vben-layout-header input[type='search']:focus,
+.vben-layout-header .vben-input:focus {
+  outline: none !important;
+  background: rgb(255 255 255 / 20%) !important;
+  border-color: rgb(255 255 255 / 45%) !important;
+  box-shadow:
+    0 4px 12px rgb(0 0 0 / 20%),
+    0 0 0 2px rgb(255 255 255 / 20%) !important;
+  transform: translateY(-1px) !important;
+}
+
+.vben-layout-header input[type='search']::placeholder {
+  font-weight: 400 !important;
+  color: rgb(255 255 255 / 75%) !important;
+}
+
+/* 全局搜索组件样式优化 */
+.bg-header .group[class*='rounded-2xl'] {
+  padding: 6px 12px !important;
+  background: rgb(255 255 255 / 12%) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 10%) !important;
+  backdrop-filter: blur(4px) !important;
+  transition: all 0.3s ease !important;
+}
+
+.bg-header .group[class*='rounded-2xl']:hover {
+  background: rgb(255 255 255 / 18%) !important;
+  box-shadow: 0 4px 8px rgb(0 0 0 / 15%) !important;
+  transform: translateY(-1px) !important;
+}
+
+.bg-header .group[class*='rounded-2xl'] span {
+  font-weight: 400 !important;
+  color: rgb(255 255 255 / 85%) !important;
+}
+
+.bg-header .group[class*='rounded-2xl']:hover span {
+  color: rgb(255 255 255 / 95%) !important;
+}
+
+.bg-header .group[class*='rounded-2xl'] svg {
+  color: rgb(255 255 255 / 80%) !important;
+}
+
+.bg-header .group[class*='rounded-2xl']:hover svg {
+  color: rgb(255 255 255 / 95%) !important;
+}
+
+/* 搜索快捷键样式 */
+.bg-header .group[class*='rounded-2xl'] kbd,
+.bg-header .group[class*='rounded-2xl'] span[class*='bg-background'] {
+  padding: 2px 6px !important;
+  font-size: 11px !important;
+  color: rgb(255 255 255 / 90%) !important;
+  background: rgb(255 255 255 / 0%) !important;
+  border-radius: 4px !important;
+}
+
+.bg-header .group[class*='rounded-2xl']:hover kbd,
+.bg-header .group[class*='rounded-2xl']:hover span[class*='bg-background'] {
+  color: rgb(255 255 255 / 100%) !important;
+  background: rgb(255 255 255 / 0%) !important;
+  border-color: rgb(255 255 255 / 35%) !important;
+}
+
+/* 用户头像区域 */
+
+.vben-layout-header .vben-avatar:hover {
+  border-color: rgb(255 255 255 / 60%) !important;
+  transform: scale(1.05) !important;
+}
+
+/* 面包屑导航样式 */
+.vben-layout-header .vben-breadcrumb,
+.vben-layout-header [class*='breadcrumb'] {
+  color: rgb(255 255 255 / 90%) !important;
+}
+
+.vben-layout-header .vben-breadcrumb a {
+  color: rgb(255 255 255 / 80%) !important;
+  transition: color 0.2s ease !important;
+}
+
+.vben-layout-header .vben-breadcrumb a:hover {
+  color: rgb(255 255 255 / 100%) !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .vben-layout-header {
+    background: linear-gradient(
+      135deg,
+      hsl(220deg 55% 40%) 0%,
+      hsl(210deg 50% 50%) 100%
+    ) !important;
+  }
+}
+
+/* 深色模式适配 */
+[data-theme='dark'] .bg-header {
+  background: linear-gradient(
+    135deg,
+    hsl(220deg 40% 25%) 0%,
+    hsl(210deg 35% 30%) 50%,
+    hsl(200deg 30% 35%) 100%
+  ) !important;
+}
+
+/* 深色模式下的搜索框样式 */
+[data-theme='dark'] .vben-layout-header input[type='search'],
+[data-theme='dark'] .vben-layout-header .vben-input {
+  background: rgb(255 255 255 / 8%) !important;
+  border-color: rgb(255 255 255 / 15%) !important;
+}
+
+[data-theme='dark'] .vben-layout-header input[type='search']:hover,
+[data-theme='dark'] .vben-layout-header .vben-input:hover {
+  background: rgb(255 255 255 / 12%) !important;
+  border-color: rgb(255 255 255 / 25%) !important;
+}
+
+[data-theme='dark'] .vben-layout-header input[type='search']:focus,
+[data-theme='dark'] .vben-layout-header .vben-input:focus {
+  background: rgb(255 255 255 / 15%) !important;
+  border-color: rgb(255 255 255 / 35%) !important;
+}
+
+[data-theme='dark'] .bg-header .group[class*='rounded-2xl'] {
+  background: rgb(255 255 255 / 8%) !important;
+  border-color: rgb(255 255 255 / 15%) !important;
+}
+
+[data-theme='dark'] .bg-header .group[class*='rounded-2xl']:hover {
+  background: rgb(255 255 255 / 12%) !important;
+  border-color: rgb(255 255 255 / 25%) !important;
+}
+
+/* 搜索模态框中的输入框样式优化 */
+.vben-modal input[type='text']:focus,
+.vben-modal input:focus {
+  outline: none !important;
+  border-color: rgb(59 130 246) !important;
+  box-shadow: 0 0 0 2px rgb(59 130 246 / 20%) !important;
+}
+
+/* 确保搜索框在header中的正确显示 */
+.vben-layout-header [data-search] input,
+.vben-layout-header .global-search input {
+  color: white !important;
+  background: rgb(255 255 255 / 12%) !important;
+  border: 1px solid rgb(255 255 255 / 25%) !important;
+  border-radius: 20px !important;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .bg-header .group[class*='rounded-2xl'] {
+    min-width: 150px !important;
+    padding: 4px 8px !important;
+  }
+
+  .bg-header .group[class*='rounded-2xl'] span {
+    font-size: 12px !important;
+  }
+}
+
+/* ========== 具体元素优化 ========== */
+
+/* 头像和用户信息区域 */
+button .bg-background {
+  background: rgb(255 255 255 / 12%) !important;
+  border: none !important;
+}
+
+button .bg-background:hover {
+  background: rgb(255 255 255 / 18%) !important;
+  box-shadow: 0 4px 8px rgb(0 0 0 / 15%) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* 图标按钮 */
+.bg-header [class*='icon'],
+.bg-header .anticon {
+  color: rgb(255 255 255 / 90%) !important;
+  transition: all 0.2s ease !important;
+}
+
+.bg-header [class*='icon']:hover,
+.bg-header .anticon:hover {
+  color: #fff !important;
+  transform: scale(1.1) !important;
+}
+/* 头像字体颜色 */
+.bg-header .text-foreground span {
+  color: hsl(var(--foreground)) !important;
+}

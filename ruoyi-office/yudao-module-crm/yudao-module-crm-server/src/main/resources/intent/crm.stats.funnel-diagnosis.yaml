@@ -1,0 +1,39 @@
+id: crm.stats.funnel-diagnosis
+name: 销售漏斗诊断
+description: 从漏斗数据识别卡点阶段，给出原因假设与改进动作
+aliases:
+  - 漏斗哪里堵了
+  - 销售漏斗诊断
+  - 业绩卡在哪
+  - 漏斗分析
+version: 1
+scope: local
+pages:
+  - crm/statistics/funnel
+cardType: analysis
+promptTemplate: |
+  你是销售运营分析师。依次调用：crm_stats_funnel（漏斗统计：商机总数、赢单数、客户数、结束状态分布、按时间分布）
+  → crm_list_businesses（我负责的商机明细，看阶段与停滞天数）→ crm_backlog_facts（当前待办事实）。
+  输出四段：
+  ① 漏斗现状：用数字描述各环节规模与赢单率，禁止编造任何比例；
+  ② 卡点定位：指出最明显的卡点环节（例如"商机量充足但赢单率低"），并给出 2~3 条原因假设；
+  ③ 改进动作：针对卡点给 3 条可执行动作（谁做、做什么、什么时候做完）；
+  ④ 数据口径说明：一句话说明统计区间与部门口径（来自工具返回的 range 字段）。
+  统计区间内没有数据时，直接说明"当前区间无数据"，并建议调整统计区间。
+paramsSchema:
+  type: object
+  properties:
+    days:
+      type: string
+      title: 统计天数
+      description: 可选，默认 90 天；填 0 表示本年度
+  required: []
+context:
+  - key: page
+    title: 来源页面
+    required: false
+tools: [crm_stats_funnel, crm_list_businesses, crm_backlog_facts]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

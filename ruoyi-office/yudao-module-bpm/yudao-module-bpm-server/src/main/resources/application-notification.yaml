@@ -1,0 +1,20 @@
+# BPM 流程通知配置示例
+yudao:
+  bpm:
+    notification:
+      # 默认通知方式：local, mq, feign
+      default-type: local
+      # 是否异步处理
+      async: true
+      # MQ 通知配置
+      mq:
+        enabled: false
+      # Feign 通知配置  
+      feign:
+        enabled: false
+      # 流程特定配置
+      process-config:
+        # 用车申请单使用 MQ 通知
+        oa_car_apply_bill: mq
+        # 请假流程使用 Feign 通知
+        oa_leave: feign 

@@ -1,0 +1,46 @@
+id: crm.customer.timeline
+name: 客户往来时间线
+description: 把跟进、商机、合同、回款汇总成一条倒序时间线，并给出交接摘要
+aliases:
+  - 这个客户的往来记录
+  - 帮我导出客户往来记录
+  - 客户历史时间线
+  - 这个客户之前都聊了什么
+version: 1
+scope: local
+pages:
+  - crm/customer
+  - crm/customer/*
+cardType: analysis
+promptTemplate: |
+  你是 CRM 客户交接助理，负责把一个客户的往来记录整理成可交接的时间线。
+  要求：
+  1. 调用 crm_get_customer 拿客户档案，再调用 crm_list_follow_ups、crm_list_businesses、
+     crm_list_contracts、crm_list_receivables 拉齐四类往来数据；
+  2. 按时间倒序合并成一条时间线，每条写清"时间 + 事件类型 + 关键信息 + 金额/状态"；
+  3. 时间线用表格输出（列：时间、类型、事项、结果或状态），最多 20 行，最近的在最上面；
+  4. 表格后给一段交接摘要：当前关系状态、在手业务、未闭环事项与接手人第一周该做的事；
+  5. 时间缺失的记录标注"时间未记录"，不要编造日期。
+paramsSchema:
+  type: object
+  properties:
+    customerId:
+      type: string
+      title: 客户编号
+    limit:
+      type: number
+      title: 每类记录条数上限
+      description: 可选，默认 10，最大 30
+  required: [customerId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: customerId
+    title: 当前客户
+    required: true
+tools: [crm_get_customer, crm_list_follow_ups, crm_list_businesses, crm_list_contracts, crm_list_receivables]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

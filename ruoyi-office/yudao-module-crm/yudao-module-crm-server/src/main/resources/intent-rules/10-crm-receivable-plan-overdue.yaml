@@ -1,0 +1,23 @@
+# =============================================================
+# 文件名前缀 = 待办分组的展示优先级（越小越靠前；面板默认只并排展示 5 组）
+# CRM 事实规则：回款计划已逾期 → 提示 + 一键逾期风险预警
+#
+# 一条规则 = 查询(dataset) + 条件(filter) + 输出模板(badge/items) + 参数映射(params)
+# 事实由 CrmIntentFactProvider 供给（口径与「待办事项」页一致）。
+# 改文案、改阈值、改挂载页面只动本文件即可。
+# =============================================================
+- id: crm.receivable.plan-overdue
+  intent: crm.receivable.overdue-warning
+  dataset: crm.overdue-receivable-plans
+  scope:
+    page: ["crm/receivable", "crm/receivable/*", "crm/backlog", ""]
+  badge:
+    text: "{{count}} 笔回款计划已逾期"
+    level: danger
+  items:
+    limit: 5
+    title: "第 {{row.period}} 期回款已逾期 {{row.overdueDays | days}} 天"
+    subtitle: "应收 {{row.price | money}} 元 · 约定 {{row.returnTime | date}}"
+    reason: "逾期未回款，建议按分级动作尽快催收"
+    params:
+      customerId: { from: row.customerId, type: string }

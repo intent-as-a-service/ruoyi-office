@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>客户管理 · 智能操作演示 — 内嵌 AI 意图 SDK</title>
+  <link rel="stylesheet" href="css/intent-ui.css">
+  <style>
+    body { margin: 0; font-family: var(--iui-font); background: var(--iui-bg); color: var(--iui-text); }
+    .app-header { background: #fff; border-bottom: 1px solid var(--iui-border); padding: 0 24px;
+      height: 52px; display: flex; align-items: center; gap: 16px; }
+    .app-logo { font-weight: 800; font-size: 15px; letter-spacing: .02em; }
+    .app-logo span { color: var(--iui-primary); }
+    .app-crumb { font-size: 12.5px; color: var(--iui-text-3); }
+    .app-user { margin-left: auto; font-size: 12.5px; color: var(--iui-text-2); }
+    .layout { display: grid; grid-template-columns: 1fr 380px; gap: 16px; padding: 16px 24px; max-width: 1440px; margin: 0 auto; }
+    .pane { background: #fff; border: 1px solid var(--iui-border); border-radius: var(--iui-radius); overflow: hidden; }
+    .pane-head { padding: 14px 18px; border-bottom: 1px solid var(--iui-border); font-weight: 700; font-size: 14px;
+      display: flex; align-items: center; justify-content: space-between; }
+    .pane-head small { font-weight: 400; color: var(--iui-text-3); font-size: 12px; }
+    table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .grid th { text-align: left; padding: 10px 14px; background: #fafbfc; color: var(--iui-text-2);
+      font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--iui-border); }
+    .grid td { padding: 11px 14px; border-bottom: 1px solid #f1f2f4; color: var(--iui-text-2); }
+    .grid tr.row { cursor: pointer; transition: background .12s; }
+    .grid tr.row:hover { background: var(--iui-primary-weak); }
+    .grid tr.row.active { background: var(--iui-primary-weak); }
+    .grid tr.row.active td:first-child { box-shadow: inset 3px 0 0 var(--iui-primary); }
+    .pill { padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+    .pill.g { background: var(--iui-success-weak); color: var(--iui-success); }
+    .pill.n { background: var(--iui-bg); color: var(--iui-text-3); }
+    .pill.b { background: var(--iui-primary-weak); color: var(--iui-primary); }
+    #intent-panel { padding: 16px; min-height: 400px; }
+    .ctx-tip { margin: 0 16px 10px; padding: 9px 12px; border-radius: 8px; background: var(--iui-bg);
+      font-size: 12px; color: var(--iui-text-2); display: flex; align-items: center; gap: 6px; }
+    .ctx-tip b { color: var(--iui-text); }
+    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background:
+      radial-gradient(1200px 600px at 20% -10%, #e8efff 0%, var(--iui-bg) 55%); }
+    .login-card { width: 400px; background: #fff; border-radius: 16px; box-shadow: var(--iui-shadow-lg); padding: 36px; }
+    .login-card h1 { font-size: 20px; margin: 0 0 6px; }
+    .login-card p.sub { margin: 0 0 24px; font-size: 13px; color: var(--iui-text-3); }
+    .login-card .iui-field { margin-bottom: 14px; }
+    .login-err { margin-bottom: 12px; }
+    .foot-note { text-align: center; font-size: 11.5px; color: var(--iui-text-3); margin-top: 18px; line-height: 1.8; }
+    @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <!-- 登录视图 -->
+  <div id="login-view" class="login-wrap" style="display:none">
+    <div class="login-card">
+      <h1>客户管理 · 智能操作</h1>
+      <p class="sub">内嵌 AI 意图 SDK 演示 — 使用宿主系统账号登录</p>
+      <div class="iui-form-err login-err" id="login-err"></div>
+      <div class="iui-field"><label>账号</label><input id="login-username" value="admin" autocomplete="username"></div>
+      <div class="iui-field"><label>密码</label><input id="login-password" type="password" value="admin123" autocomplete="current-password"></div>
+      <button class="iui-btn-primary" id="login-btn" style="width:100%;margin-top:6px">登 录</button>
+      <div class="foot-note">登录态与租户隔离均沿用宿主系统（yudao security / tenant）<br>演示账号来自 ruoyi-office 基础库</div>
+    </div>
+  </div>
+
+  <!-- 应用视图 -->
+  <div id="app-view" style="display:none">
+    <div class="app-header">
+      <span class="app-logo">RUOYI <span>OFFICE</span></span>
+      <span class="app-crumb">CRM / 客户管理 / 销售工作台</span>
+      <span class="app-user" id="app-user"></span>
+    </div>
+    <div class="layout">
+      <div class="pane">
+        <div class="pane-head">客户列表 <small id="list-meta"></small></div>
+        <table class="grid">
+          <thead><tr><th style="width:30%">客户名称</th><th>等级</th><th>成交</th><th>最后跟进</th><th>来源</th></tr></thead>
+          <tbody id="customer-rows"></tbody>
+        </table>
+      </div>
+      <div class="pane">
+        <div class="pane-head">智能操作面板 <small id="gateway-status"></small></div>
+        <div class="ctx-tip">📌 上下文来源：<b id="ctx-customer">未选择客户（请在左侧点击选择）</b><span id="ctx-page" style="margin-left:auto;color:var(--iui-text-3)">page=crm/customer</span></div>
+        <div id="intent-panel"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/intent-ui-sdk.js"></script>
+  <script src="js/demo-app.js"></script>
+</body>
+</html>

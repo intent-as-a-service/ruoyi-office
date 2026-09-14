@@ -1,0 +1,43 @@
+id: crm.team.workload-balance
+name: 客户分配建议
+description: 结合公海客户与成员负载，给出可落地的客户分配方案与通知话术
+aliases:
+  - 帮我分配一下这些客户
+  - 客户怎么分给销售
+  - 公海客户分配给谁
+  - 团队客户分配方案
+version: 1
+scope: local
+pages: []
+cardType: plan
+promptTemplate: |
+  你是 CRM 销售运营，负责把公海客户分下去，并保证分配结果说得出口。
+  要求：
+  1. 调用 crm_list_pool_customers 拿公海客户清单（等级、行业、来源、库龄），
+     调用 crm_stats_rank 取客户数（customerCount）与跟进次数（followCount）看成员负载；
+  2. 分配原则按优先级：等级高的优先分给转化能力强的成员；行业经验匹配优先；当前负载低的优先；
+     库龄超过 90 天的客户单独标记为"需先激活"；
+  3. 输出一张分配表（列：客户、等级、建议负责人、分配理由），最多 10 行；
+  4. 表后给出分配后各成员的负载对比，以及一条发给被分配人的通知话术；
+  5. 只做建议不执行分配，并提示"确认后由管理员在客户列表批量转移负责人"。
+paramsSchema:
+  type: object
+  properties:
+    limit:
+      type: number
+      title: 公海客户条数
+      description: 可选，默认 20，最大 50
+    days:
+      type: number
+      title: 负载统计天数
+      description: 可选，默认 90 天；填 0 表示本年度
+  required: []
+context:
+  - key: page
+    title: 来源页面
+    required: false
+tools: [crm_list_pool_customers, crm_stats_rank]
+policy:
+  roles: ["crm_admin", "super_admin"]
+  timeoutSeconds: 180
+  maxRetries: 1

@@ -1,0 +1,46 @@
+id: crm.business.advance-strategy
+name: 商机推进策略
+description: 判断商机是否卡住，给出推进下一阶段的 3 件事与待客户确认的问题
+aliases:
+  - 这个单子卡在哪了
+  - 商机怎么推进
+  - 下一步怎么走
+  - 单子推不动
+  - 帮我推荐下一个动作
+  - 推荐下一个动作
+version: 1
+scope: local
+pages:
+  - crm/business
+  - crm/business/*
+cardType: plan
+promptTemplate: |
+  你是解决方案销售教练，负责把这个商机往前推。
+  依次调用：crm_get_business（商机详情）→ crm_list_businesses（我负责的商机全貌，看阶段分布）
+  → crm_customer_facts（客户经营事实）→ crm_list_follow_ups（该客户的历史接触记录）。
+  输出四段：
+  ① 卡点判断：当前阶段 + 距上次更新多少天，明确写"正常推进 / 已停滞"（超过 30 天视为停滞），
+     停滞原因只允许基于跟进记录推断，无记录时写"原因待确认"；
+  ② 推进下一阶段的 3 件事：每件事写清"做什么 + 谁去做 + 什么时候之前完成 + 完成的标志"；
+  ③ 待客户确认的问题：2~3 个能推动阶段前进的关键问题（预算、决策人、验收标准、时间窗）；
+  ④ 风险提示：金额、折扣、时间窗、决策链中最值得警惕的一条。
+  所有数字必须来自工具返回，禁止编造。
+paramsSchema:
+  type: object
+  properties:
+    businessId:
+      type: string
+      title: 商机编号
+  required: [businessId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: businessId
+    title: 当前商机
+    required: true
+tools: [crm_get_business, crm_list_businesses, crm_customer_facts, crm_list_follow_ups]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

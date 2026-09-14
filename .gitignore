@@ -1,0 +1,14 @@
+# 本仓是 ruoyi-office 的「前后端一体」组织方式：
+#   ruoyi-office/      —— 后端（yudao 系）
+#   ruoyi-office-vben/ —— 前端（Vben）
+# 两个子目录各自保留上游的 .gitignore（target/、node_modules/、dist/、logs/ 等
+# 都由它们负责），这里只处理仓库根一级的杂物。
+
+*.log
+logs/
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

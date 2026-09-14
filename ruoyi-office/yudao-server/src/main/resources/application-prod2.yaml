@@ -1,0 +1,222 @@
+# ================================
+# 宇擎后端 - 生产环境配置
+# ================================
+# 注意：敏感信息请通过环境变量或外部配置覆盖
+# 可通过 Docker 环境变量覆盖：-e "SPRING_DATASOURCE_PASSWORD=xxx"
+
+server:
+  port: 48080
+
+--- #################### 数据库相关配置 ####################
+
+spring:
+  autoconfigure:
+    # noinspection SpringBootApplicationYaml
+    exclude:
+      - org.springframework.ai.vectorstore.qdrant.autoconfigure.QdrantVectorStoreAutoConfiguration
+      - org.springframework.ai.vectorstore.milvus.autoconfigure.MilvusVectorStoreAutoConfiguration
+
+  # 数据源配置项
+  datasource:
+    druid:
+      web-stat-filter:
+        enabled: true
+      stat-view-servlet:
+        enabled: true
+        allow: 127.0.0.1  # 生产环境限制 Druid 监控访问
+        url-pattern: /druid/*
+        login-username: ${DRUID_USERNAME:admin}
+        login-password: ${DRUID_PASSWORD:admin123}
+      filter:
+        stat:
+          enabled: true
+          log-slow-sql: true
+          slow-sql-millis: 500  # 生产环境调高慢 SQL 阈值
+          merge-sql: true
+        wall:
+          config:
+            multi-statement-allow: true
+    dynamic:
+      druid:
+        initial-size: 10        # 生产环境增加初始连接数
+        min-idle: 20            # 增加最小空闲连接
+        max-active: 50          # 增加最大连接数
+        max-wait: 60000
+        time-between-eviction-runs-millis: 60000
+        min-evictable-idle-time-millis: 600000
+        max-evictable-idle-time-millis: 1800000
+        validation-query: SELECT 1 FROM DUAL
+        test-while-idle: true
+        test-on-borrow: false
+        test-on-return: false
+        pool-prepared-statements: true
+        max-pool-prepared-statement-per-connection-size: 20
+      primary: master
+      datasource:
+        master:
+          # 数据库连接配置 - 请通过环境变量覆盖
+          url: ${MYSQL_URL:jdbc:mysql://127.0.0.1:13306/ruoyi-office?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true&rewriteBatchedStatements=true}
+          username: ${MYSQL_USERNAME:root}
+          password: ${MYSQL_PASSWORD:Admin$123!}
+        slave:
+          lazy: true
+          url: ${MYSQL_SLAVE_URL:jdbc:mysql://127.0.0.1:13306/ruoyi-office?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&nullCatalogMeansCurrent=true&rewriteBatchedStatements=true}
+          username: ${MYSQL_SLAVE_USERNAME:root}
+          password: ${MYSQL_SLAVE_PASSWORD:Admin$123!}
+
+  # Redis 配置
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:16379}
+      database: ${REDIS_DATABASE:0}
+      password: ${REDIS_PASSWORD:Admin$123!}  # 如果 Redis 设置了密码，请配置
+      timeout: 10000ms
+      lettuce:
+        pool:
+          max-active: 50
+          max-idle: 20
+          min-idle: 5
+          max-wait: 5000ms
+
+--- #################### 定时任务相关配置 ####################
+
+xxl:
+  job:
+    enabled: ${XXL_JOB_ENABLED:false}  # 生产环境根据需要开启
+    admin:
+      addresses: ${XXL_JOB_ADMIN_URL:http://127.0.0.1:9090/xxl-job-admin}
+
+--- #################### 消息队列相关 ####################
+
+# RocketMQ 配置
+rocketmq:
+  name-server: ${ROCKETMQ_NAMESRV:127.0.0.1:9876}
+
+spring:
+  # RabbitMQ 配置
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+  # Kafka 配置
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:127.0.0.1:9092}
+
+--- #################### 服务保障相关配置 ####################
+
+# Lock4j 分布式锁配置
+lock4j:
+  acquire-timeout: 3000
+  expire: 30000
+
+--- #################### 监控相关配置 ####################
+
+# Actuator 监控端点配置
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info,metrics  # 生产环境限制暴露的端点
+  endpoint:
+    health:
+      show-details: when_authorized  # 需要认证才显示详情
+
+# Spring Boot Admin 配置
+spring:
+  boot:
+    admin:
+      client:
+        enabled: false  # 生产环境根据需要开启
+        url: ${ADMIN_SERVER_URL:http://127.0.0.1:48080/admin}
+        instance:
+          service-host-type: IP
+        username: admin
+        password: ${ADMIN_PASSWORD:admin}
+      context-path: /admin
+
+# 日志文件配置
+logging:
+  level:
+    root: INFO
+    cn.iocoder.yudao: INFO
+    org.springframework: WARN
+  file:
+    name: ${LOG_PATH:/data/app/logs}/yudao-server.log
+    max-size: 100MB
+    max-history: 30
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+
+--- #################### 微信公众号相关配置 ####################
+
+wx:
+  mp:
+    app-id: ${WX_MP_APP_ID:}
+    secret: ${WX_MP_SECRET:}
+    config-storage:
+      type: RedisTemplate
+      key-prefix: wx
+      http-client-type: HttpClient
+  miniapp:
+    appid: ${WX_MINIAPP_APP_ID:}
+    secret: ${WX_MINIAPP_SECRET:}
+    config-storage:
+      type: RedisTemplate
+      key-prefix: wa
+      http-client-type: HttpClient
+
+--- #################### 宇擎相关配置 ####################
+
+yudao:
+  pay:
+    order-notify-url: ${PAY_ORDER_NOTIFY_URL:}
+    refund-notify-url: ${PAY_REFUND_NOTIFY_URL:}
+    transfer-notify-url: ${PAY_TRANSFER_NOTIFY_URL:}
+  demo: false  # 生产环境关闭演示模式
+  tencent-lbs-key: ${TENCENT_LBS_KEY:}
+
+# 第三方登录配置
+justauth:
+  enabled: true
+  type:
+    DINGTALK:
+      client-id: ${DINGTALK_CLIENT_ID:}
+      client-secret: ${DINGTALK_CLIENT_SECRET:}
+      ignore-check-redirect-uri: true
+    WECHAT_ENTERPRISE:
+      client-id: ${WECHAT_ENTERPRISE_CLIENT_ID:}
+      client-secret: ${WECHAT_ENTERPRISE_CLIENT_SECRET:}
+      agent-id: ${WECHAT_ENTERPRISE_AGENT_ID:}
+      ignore-check-redirect-uri: true
+    WECHAT_MINI_PROGRAM:
+      client-id: ${wx.miniapp.appid}
+      client-secret: ${wx.miniapp.secret}
+      ignore-check-redirect-uri: true
+      ignore-check-state: true
+    WECHAT_MP:
+      client-id: ${wx.mp.app-id}
+      client-secret: ${wx.mp.secret}
+      ignore-check-redirect-uri: true
+  cache:
+    type: REDIS
+    prefix: 'social_auth_state:'
+    timeout: 24h
+
+--- #################### IoT 相关配置 ####################
+
+iot:
+  emq:
+    username: ${EMQ_USERNAME:}
+    password: ${EMQ_PASSWORD:}
+    hostUrl: ${EMQ_HOST_URL:tcp://127.0.0.1:1883}
+    client-id: ${random.int}
+    default-topic: ${EMQ_DEFAULT_TOPIC:device}
+    keepalive: 60
+    clearSession: true
+
+# 插件配置
+pf4j:
+  pluginsDir: ${PLUGINS_DIR:/data/app/plugins}

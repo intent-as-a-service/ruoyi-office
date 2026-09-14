@@ -1,0 +1,47 @@
+id: crm.contact.talk-track
+name: 沟通话术生成
+description: 按联系人角色与客户阶段生成开场、提问与异议应对
+aliases:
+  - 帮我写个话术
+  - 怎么跟这个联系人聊
+  - 开场白怎么说
+  - 客户异议怎么回
+  - 帮我写个跟进话术
+version: 1
+scope: local
+pages:
+  - crm/contact
+  - crm/contact/*
+cardType: plan
+promptTemplate: |
+  你是销售话术教练。先调用 crm_get_contact、crm_get_customer、crm_list_businesses 了解背景
+  （如与该联系人相关，可用 bizType=2 的 crm_list_follow_ups 看客户最近接触）。
+  输出一份可直接照着说的沟通脚本：
+  ① 开场（30 秒内，含理由与切入角度，要自然不客套）；
+  ② 3 个提问（每个提问后面标注"想确认什么"）；
+  ③ 预判 3 个异议 + 应对话术（每条不超过 3 句）；
+  ④ 收尾动作（要拿到什么承诺、下次时间怎么定）。
+  若用户给了沟通目标，全部话术必须服务于该目标；不要出现"我们产品很好"这类空话。
+paramsSchema:
+  type: object
+  properties:
+    contactId:
+      type: string
+      title: 联系人编号
+    goal:
+      type: string
+      title: 本次沟通目标
+      description: 例如：约见面 / 推进报价 / 催回款 / 续约
+  required: [contactId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: contactId
+    title: 当前联系人
+    required: true
+tools: [crm_get_contact, crm_get_customer, crm_list_businesses, crm_list_follow_ups]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

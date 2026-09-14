@@ -1,0 +1,23 @@
+# =============================================================
+# 文件名前缀 = 待办分组的展示优先级（越小越靠前；面板默认只并排展示 5 组）
+# CRM 事实规则：待我审批的合同 → 提示 + 一键审批预检
+#
+# 一条规则 = 查询(dataset) + 条件(filter) + 输出模板(badge/items) + 参数映射(params)
+# 事实由 CrmIntentFactProvider 供给（口径与「待办事项」页一致）。
+# 改文案、改阈值、改挂载页面只动本文件即可。
+# =============================================================
+- id: crm.contract.audit
+  intent: crm.contract.audit-precheck
+  dataset: crm.audit-contracts
+  scope:
+    page: ["crm/contract", "crm/contract/*", "crm/backlog", ""]
+  badge:
+    text: "{{count}} 份合同待我审批"
+    level: danger
+  items:
+    limit: 5
+    title: "合同「{{row.name}}」等待审批"
+    subtitle: "编号 {{row.no}} · 金额 {{row.price | money}} 元"
+    reason: "需要我处理的审批，建议先跑一遍审批预检再点通过"
+    params:
+      contractId: { from: row.id, type: string }

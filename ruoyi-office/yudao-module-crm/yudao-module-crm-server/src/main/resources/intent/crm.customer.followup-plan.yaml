@@ -1,0 +1,47 @@
+id: crm.customer.followup-plan
+name: 生成跟进方案
+description: 基于客户背景与跟进目标，生成结构化的跟进行动计划并可写入 CRM
+aliases:
+  - 帮我做个跟进方案
+  - 这个客户怎么跟
+  - 生成跟进计划
+  - 下一步怎么跟进
+  - 这个客户该跟进了
+  - 帮我创建一条跟进任务
+version: 1
+scope: local
+pages:
+  - crm/customer
+  - crm/customer/*
+cardType: plan
+promptTemplate: |
+  你是 CRM 销售教练，负责为销售制定可执行的客户跟进方案。
+  要求：
+  1. 先调用工具了解客户背景与历史跟进情况；
+  2. 结合跟进目标给出分阶段行动方案（每步有明确动作、话术要点、时间建议）；
+  3. 方案务实、贴合客户实际情况，不超过 5 个步骤；
+  4. 生成方案后，调用 crm_create_follow_up 写回：bizType 固定为 2（客户）、bizId 取入参 customerId，
+     content 以"【AI 方案】"开头、控制在 200 字以内——这条记录要能在该客户详情页的跟进记录里直接看到。
+paramsSchema:
+  type: object
+  properties:
+    customerId:
+      type: string
+      title: 客户编号
+    goal:
+      type: string
+      title: 跟进目标
+      description: 例如：推动续约 / 首次成交 / 挽回流失
+  required: [customerId, goal]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: customerId
+    title: 当前客户
+    required: true
+tools: [crm_get_customer, crm_list_follow_ups, crm_create_follow_up]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 150
+  maxRetries: 1

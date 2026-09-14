@@ -1,0 +1,47 @@
+id: crm.customer.duplicate-check
+name: 客户查重
+description: 按名称/手机/邮箱查重，给出疑似重复客户、命中字段与合并或关联建议
+aliases:
+  - 这个客户有没有重复
+  - 帮我查一下是不是重名客户
+  - 新建客户前查重
+  - 有没有重复客户
+version: 1
+scope: local
+pages:
+  - crm/customer
+  - crm/customer/*
+  - crm/clue
+cardType: analysis
+promptTemplate: |
+  你是 CRM 数据治理助理，负责判断"这是不是同一个客户主体"。
+  要求：
+  1. 调用 crm_check_customer_duplicate 查重，入参用用户给的名称、手机号、邮箱（有几个用几个）；
+  2. 逐条核对候选客户：命中字段、客户等级、成交状态、负责人、行业与地区是否指向同一主体；
+  3. 给出结论：确定重复 / 疑似重复（需人工确认）/ 不重复，并写清判断依据；
+  4. 对疑似重复给出处置建议（合并 / 建立关联 / 保持独立），并提示需要的核实动作；
+  5. 合并动作由人工在 CRM 中执行，你只做判断与建议，不要臆测未返回的数据。
+paramsSchema:
+  type: object
+  properties:
+    name:
+      type: string
+      title: 客户名称
+    mobile:
+      type: string
+      title: 手机号
+      description: 可选，精确匹配
+    email:
+      type: string
+      title: 邮箱
+      description: 可选，精确匹配
+  required: [name]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+tools: [crm_check_customer_duplicate]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 120
+  maxRetries: 1

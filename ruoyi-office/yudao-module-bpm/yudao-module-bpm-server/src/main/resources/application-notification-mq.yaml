@@ -1,0 +1,34 @@
+# BPM MQ 通知配置示例
+yudao:
+  bpm:
+    notification:
+      # 默认通知方式使用MQ
+      default-type: mq
+      # 异步处理
+      async: true
+      # MQ 通知配置
+      mq:
+        enabled: true
+      # Feign 通知配置（如果需要的话）
+      feign:
+        enabled: false
+      # 流程特定配置
+      process-config:
+        # 用车申请单使用 MQ 通知
+        oa_car_apply_bill: mq
+        # 请假流程使用 MQ 通知
+        oa_leave: mq
+
+# Redis 配置确保正确
+spring:
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    database: 0
+    timeout: 6000
+    lettuce:
+      pool:
+        max-active: 10
+        max-wait: -1
+        max-idle: 8
+        min-idle: 0 

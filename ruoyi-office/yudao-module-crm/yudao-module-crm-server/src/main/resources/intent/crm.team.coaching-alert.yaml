@@ -1,0 +1,38 @@
+id: crm.team.coaching-alert
+name: 团队辅导预警
+description: 从跟进量与转化表现找出需要支持的成员，给出辅导动作与话术
+aliases:
+  - 团队谁需要支持
+  - 谁业绩落后了
+  - 团队辅导建议
+  - 帮我看看团队谁掉队了
+version: 1
+scope: local
+pages: []
+cardType: analysis
+promptTemplate: |
+  你是销售团队教练，负责找出"该帮谁、帮什么"。
+  要求：
+  1. 调用 crm_stats_rank 至少取两个维度：跟进次数（followCount）与合同金额（contractPrice），
+     再调用 crm_stats_performance 看合同与回款的整体达成；
+  2. 判断标准要两面看：跟进量低但金额高 = 效率型（别加跟动量），跟进量高但转化低 = 方法型（要辅导）；
+  3. 点名需要支持的成员时给出具体事实（数字与差距），不做人身评价；
+  4. 每位需要支持的成员给一条本周可执行的辅导动作 + 一段可直接照说的辅导话术；
+  5. 数据不足或排行未覆盖的成员，明确说明而不是略过。
+paramsSchema:
+  type: object
+  properties:
+    days:
+      type: number
+      title: 统计天数
+      description: 可选，默认 90 天；填 0 表示本年度
+  required: []
+context:
+  - key: page
+    title: 来源页面
+    required: false
+tools: [crm_stats_rank, crm_stats_performance]
+policy:
+  roles: ["crm_admin", "super_admin"]
+  timeoutSeconds: 180
+  maxRetries: 1

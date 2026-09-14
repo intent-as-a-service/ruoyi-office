@@ -1,0 +1,42 @@
+id: crm.receivable.collection-plan
+name: 回款催收计划
+description: 基于合同与回款进度生成分段催收计划，并可写入跟进记录
+aliases:
+  - 该催款了怎么催
+  - 回款催收计划
+  - 催款话术
+  - 帮我要钱
+  - 帮我提醒一下这个客户该回款了
+  - 这客户该回款了
+version: 1
+scope: local
+pages:
+  - crm/receivable
+cardType: plan
+promptTemplate: |
+  你是回款管理专家。基于合同与回款数据分析回款缺口，生成分段催收计划：
+  1. 先调用工具核对合同金额与已回款记录，计算回款缺口与逾期天数；
+  2. 按"友好提醒 → 正式函件 → 升级处理"输出 2~3 段催收动作，每段含时间点、方式、话术要点；
+  3. 生成计划后，调用 crm_create_follow_up 写回：bizType 固定为 2（客户）、bizId 取合同归属的客户编号
+     （先用 crm_get_contract 取 customerId），content 以"【AI 催收计划】"开头、200 字以内。
+  所有金额计算必须与工具返回数据一致，禁止编造。
+paramsSchema:
+  type: object
+  properties:
+    contractId:
+      type: string
+      title: 合同编号
+    graceDays:
+      type: string
+      title: 宽限天数
+      description: 可选，逾期宽限天数，默认 0
+  required: [contractId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+tools: [crm_get_receivable, crm_get_contract, crm_get_customer, crm_create_follow_up]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 150
+  maxRetries: 1

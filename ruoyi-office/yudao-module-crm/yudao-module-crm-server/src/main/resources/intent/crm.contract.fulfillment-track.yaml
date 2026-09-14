@@ -1,0 +1,41 @@
+id: crm.contract.fulfillment-track
+name: 合同履约跟踪
+description: 对照合同金额与回款进度，识别履约与收款风险
+aliases:
+  - 合同执行到哪了
+  - 履约进度
+  - 合同交付情况
+  - 合同履行到哪一步
+version: 1
+scope: local
+pages:
+  - crm/contract
+  - crm/contract/*
+cardType: analysis
+promptTemplate: |
+  你是合同履约管理员。依次调用：crm_get_contract（合同金额与起止时间）→
+  crm_list_receivables（已登记回款）→ crm_list_receivable_plans（回款计划：期数、约定回款日、是否已回款、逾期天数）。
+  输出三段：
+  ① 履约进度对照表：用 table 列出 合同金额 / 已回款金额 / 回款率 / 计划期数 / 已回款期数 / 逾期期数；
+  ② 风险判断：明确指出是否存在"到期未回款""回款率明显落后于时间进度"的情况，并给出逾期天数；
+  ③ 跟进行动：按紧急程度给出 2~3 个动作（每个动作写负责人 + 时间 + 完成标志）。
+  金额与天数必须与工具返回一致；若合同未录入回款计划，要直接指出"该合同缺少回款计划，无法跟踪"。
+paramsSchema:
+  type: object
+  properties:
+    contractId:
+      type: string
+      title: 合同编号
+  required: [contractId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: contractId
+    title: 当前合同
+    required: true
+tools: [crm_get_contract, crm_list_receivables, crm_list_receivable_plans]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

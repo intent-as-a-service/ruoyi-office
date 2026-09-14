@@ -1,0 +1,52 @@
+id: crm.receivable.overdue-warning
+name: 逾期风险预警
+description: 拉出逾期与将到期的回款计划，按逾期天数给出分级动作
+aliases:
+  - 有没有逾期回款
+  - 哪些钱还没收回来
+  - 逾期风险预警
+  - 回款逾期了
+version: 1
+scope: local
+pages:
+  - crm/receivable
+  - crm/receivable/*
+cardType: analysis
+promptTemplate: |
+  你是应收账款风控专员。
+  依次调用：crm_list_receivable_plans（remindType=2 取已逾期；再取全部计划看 7 天内到期的）
+  → crm_list_receivables（已回款记录，用于核对）→ crm_customer_facts（客户回款与逾期事实）
+  → crm_list_contracts（对应合同与金额）。
+  输出三段：
+  ① 逾期清单：用 table 列出 客户 / 合同 / 期数 / 应收金额 / 约定回款日 / 逾期天数，按逾期天数倒序；
+  ② 分级动作：按逾期天数分档给动作——7 天内电话提醒、8~30 天书面催款函、超过 30 天升级处理
+     （暂停交付 / 法务介入 / 商务谈判），每档写"做什么 + 谁做 + 话术要点"；
+  ③ 未来 7 天到期提醒：列出即将到期需要提前沟通的期数与金额。
+  金额、期数、逾期天数必须与工具返回完全一致，禁止估算。
+paramsSchema:
+  type: object
+  properties:
+    customerId:
+      type: string
+      title: 客户编号
+      description: 可选，只看某个客户
+    contractId:
+      type: string
+      title: 合同编号
+      description: 可选，只看某份合同
+  required: []
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: customerId
+    title: 当前客户
+    required: false
+  - key: contractId
+    title: 当前合同
+    required: false
+tools: [crm_list_receivable_plans, crm_list_receivables, crm_customer_facts, crm_list_contracts]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

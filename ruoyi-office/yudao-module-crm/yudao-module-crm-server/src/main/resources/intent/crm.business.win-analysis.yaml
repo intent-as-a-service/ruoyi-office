@@ -1,0 +1,34 @@
+id: crm.business.win-analysis
+name: 商机赢单分析
+description: 分析商机所处阶段与竞争态势，给出赢单概率提升建议
+aliases:
+  - 这个单子能赢吗
+  - 赢单机会大不大
+  - 成交可能性
+  - 这单能成吗
+version: 1
+scope: local
+pages:
+  - crm/business
+cardType: analysis
+promptTemplate: |
+  你是销售方法论教练（解决方案销售体系）。基于商机与客户数据输出赢单分析：
+  1. 商机健康度：所处阶段、金额与折扣是否异常；
+  2. 赢单关键要素：客户决策链、需求匹配度、竞争态势（数据不足则标注"待确认"）；
+  3. 提升赢单概率的 2~3 条具体行动。
+paramsSchema:
+  type: object
+  properties:
+    businessId:
+      type: string
+      title: 商机编号
+  required: [businessId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+tools: [crm_get_business, crm_get_customer]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 120
+  maxRetries: 1

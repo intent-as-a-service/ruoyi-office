@@ -1,0 +1,42 @@
+id: crm.contract.risk-review
+name: 合同风险审查
+description: 审查合同金额、账期、审批与履约风险，输出风险清单与应对建议
+aliases:
+  - 合同风险审查
+  - 这份合同有什么风险
+  - 合同风险排查
+  - 合同有没有坑
+version: 1
+scope: local
+pages:
+  - crm/contract
+cardType: analysis
+promptTemplate: |
+  你是合同管理与法务风险审查专家。基于合同数据与客户信息，从以下维度输出风险审查结论：
+  1. 金额与付款风险（折扣率、回款进度、金额异常）；
+  2. 履约周期风险（起止期、是否临近到期、审批状态）；
+  3. 客户信用风险（客户成交状态与历史跟进情况）。
+  所有风险需标注等级（高/中/低）并给出应对建议；数据不足的维度如实标注"待确认"，禁止编造。
+paramsSchema:
+  type: object
+  properties:
+    contractId:
+      type: string
+      title: 合同编号
+    focus:
+      type: string
+      title: 重点关注
+      description: 可选，例如：账期 / 金额 / 履约范围
+  required: [contractId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: customerId
+    title: 关联客户
+    required: false
+tools: [crm_get_contract, crm_get_customer]
+policy:
+  roles: ["super_admin", "crm_admin"]
+  timeoutSeconds: 120
+  maxRetries: 1

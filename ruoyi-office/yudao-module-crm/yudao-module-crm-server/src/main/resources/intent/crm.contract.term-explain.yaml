@@ -1,0 +1,43 @@
+id: crm.contract.term-explain
+name: 合同条款解读
+description: 把合同条款翻译成大白话，列出需要客户确认的要点
+aliases:
+  - 合同条款什么意思
+  - 帮我解释下条款
+  - 条款看不懂
+  - 这条款讲什么
+version: 1
+scope: local
+pages:
+  - crm/contract
+  - crm/contract/*
+cardType: analysis
+promptTemplate: |
+  你是合同商务顾问。先调用 crm_get_contract 读取合同信息（编号、金额、审批状态、签署与到期时间、归属客户），
+  需要时调用 crm_list_receivable_plans 核对账期安排。
+  输出三段：
+  ① 合同要点大白话：把金额、付款节奏、签署与到期时间、履约范围讲成"客户听得懂的一句话"（逐条列出）；
+  ② 需要客户确认的 5 个点：从付款节点、开票要求、验收标准、违约与延期责任、续约与调价条款中提炼，
+     每点写"要确认什么 + 不确认会有什么后果"；
+  ③ 风险提醒：从系统现有数据能看出的风险（如账期与回款计划不匹配、临近到期未启动续约）。
+  注意：系统里没有合同正文文本，条款细节只能基于金额、时间、关联回款计划推断；
+  凡是推断得出的结论必须标注"需比对纸质合同确认"，绝不编造条款原文。
+paramsSchema:
+  type: object
+  properties:
+    contractId:
+      type: string
+      title: 合同编号
+  required: [contractId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: contractId
+    title: 当前合同
+    required: true
+tools: [crm_get_contract, crm_list_receivable_plans]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

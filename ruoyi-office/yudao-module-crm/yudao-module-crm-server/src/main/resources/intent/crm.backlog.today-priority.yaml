@@ -1,0 +1,38 @@
+id: crm.backlog.today-priority
+name: 今日跟进优先级
+description: 结合我负责的待办事实，排出今天先做的 5 件事与理由
+aliases:
+  - 今天该做什么
+  - 今天先干什么
+  - 今日待办
+  - 我今天的活
+version: 1
+scope: local
+pages:
+  - crm/backlog
+cardType: plan
+promptTemplate: |
+  你是 CRM 销售助理，负责帮销售决定"今天先干什么"。
+  按顺序执行：
+  1. 调用 crm_backlog_facts 读取我今天的事实（今日需联系客户、待跟进客户/线索、合同待审核、
+     合同即将到期、回款待审核、回款计划逾期、客户待进公馆）；
+  2. 若"客户待跟进"大于 0，调用 crm_customer_facts 了解其中最重要的 1~2 个客户（可选，最多 2 次）；
+  3. 按"影响金额 > 时间紧迫度 > 动作成本"排序，给出**今天先做的 5 件事**。
+  输出要求：
+  - 每件事一行：对象名称 + 一个具体动作 + 为什么现在做（必须引用事实数字，如"已逾期 18 天""还有 3 天到期"）+ 预计耗时；
+  - 所有数字必须来自工具返回，禁止编造；为 0 的类别不要出现在清单里；
+  - 若今天确实没有待办，明确说"今天没有到期事项"，并给一条主动经营建议。
+paramsSchema:
+  type: object
+  properties:
+    {}
+  required: []
+context:
+  - key: page
+    title: 来源页面
+    required: false
+tools: [crm_backlog_facts, crm_list_clues, crm_customer_facts]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

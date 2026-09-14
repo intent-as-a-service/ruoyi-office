@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+  <script>
+    window.__errs = [];
+    window.addEventListener('error', function (e) {
+      try {
+        window.__errs.push('ERR:' + String(e.message).slice(0, 300));
+        localStorage.setItem('iui_errs', JSON.stringify(window.__errs));
+      } catch (_) {}
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      try {
+        window.__errs.push('REJ:' + String(e.reason).slice(0, 300));
+        localStorage.setItem('iui_errs', JSON.stringify(window.__errs));
+      } catch (_) {}
+    });
+  </script>
+
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+    <meta name="renderer" content="webkit" />
+    <meta name="description" content="A Modern Back-end Management System" />
+    <meta name="keywords" content="Vben Admin Vue3 Vite" />
+    <meta name="author" content="Vben" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=0"
+    />
+    <!-- 由 vite 注入 VITE_APP_TITLE 变量，在 .env 文件内配置 -->
+    <title><%= VITE_APP_TITLE %></title>
+    <link rel="icon" href="/favicon.ico" />
+    <!-- ========== 流量统计 ========== -->
+    <!-- 百度统计：VITE_APP_BAIDU_CODE 由构建环境变量注入，不硬编码在源码中 -->
+    <script>
+      var HM_ID =
+        '<%= typeof VITE_APP_BAIDU_CODE !== "undefined" ? VITE_APP_BAIDU_CODE : "" %>';
+      if (HM_ID) {
+        var _hmt = _hmt || [];
+        (function () {
+          var hm = document.createElement('script');
+          hm.src = 'https://hm.baidu.com/hm.js?' + HM_ID;
+          var s = document.getElementsByTagName('script')[0];
+          s.parentNode.insertBefore(hm, s);
+        })();
+      }
+    </script>
+    <!-- Google Analytics (GA4)：VITE_APP_GA_ID 由构建环境变量注入，不硬编码在源码中 -->
+    <script>
+      var GA_ID =
+        '<%= typeof VITE_APP_GA_ID !== "undefined" ? VITE_APP_GA_ID : "" %>';
+      if (GA_ID) {
+        (function () {
+          var gs = document.createElement('script');
+          gs.async = true;
+          gs.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
+          document.head.appendChild(gs);
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            dataLayer.push(arguments);
+          }
+          gtag('js', new Date());
+          gtag('config', GA_ID);
+          window.gtag = gtag;
+        })();
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

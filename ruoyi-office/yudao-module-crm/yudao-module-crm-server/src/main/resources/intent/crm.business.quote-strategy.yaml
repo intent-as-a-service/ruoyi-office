@@ -1,0 +1,43 @@
+id: crm.business.quote-strategy
+name: 报价策略分析
+description: 拆解报价结构与折扣空间，给出打包建议与让价话术
+aliases:
+  - 怎么报价
+  - 报价怎么谈
+  - 折扣给多少
+  - 报价方案
+version: 1
+scope: local
+pages:
+  - crm/business
+  - crm/business/*
+cardType: analysis
+promptTemplate: |
+  你是报价与商务谈判顾问。依次调用：crm_get_business（商机金额与折扣）→
+  crm_business_products（产品明细：标准价、成交价、数量）→ crm_search_products（同类产品标准价，用于比价）
+  → crm_list_contracts（该客户历史合同金额，判断历史价格水位）。
+  输出四段：
+  ① 报价结构：标准价合计、成交价合计、整体折扣率，并指出折扣最深的 1~2 个产品；
+  ② 折扣空间判断：结合历史合同水位，明确"还能不能让、让多少、换什么"；
+  ③ 打包建议：把低毛利产品与高毛利产品组合的 2 种方案（各写一句话话术）；
+  ④ 让价话术：用"付款条件 / 合同期限 / 交付范围 / 案例宣传"换折扣的 3 句可直接说出口的话。
+  金额与折扣一律引用工具返回，禁止估算。
+paramsSchema:
+  type: object
+  properties:
+    businessId:
+      type: string
+      title: 商机编号
+  required: [businessId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: businessId
+    title: 当前商机
+    required: true
+tools: [crm_get_business, crm_business_products, crm_search_products, crm_list_contracts]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

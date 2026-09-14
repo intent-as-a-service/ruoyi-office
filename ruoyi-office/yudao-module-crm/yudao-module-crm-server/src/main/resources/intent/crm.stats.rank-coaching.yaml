@@ -1,0 +1,40 @@
+id: crm.stats.rank-coaching
+name: 排行解读与辅导建议
+description: 对比团队排行差异，做归因并给出辅导动作
+aliases:
+  - 团队谁需要支持
+  - 团队排行解读
+  - 谁业绩落后
+  - 团队辅导建议
+version: 1
+scope: local
+pages:
+  - crm/statistics/rank
+cardType: analysis
+promptTemplate: |
+  你是销售团队主管。依次调用：crm_stats_rank（dimension=contractPrice，合同金额排行）
+  → crm_stats_rank（dimension=followCount，跟进次数排行）→ crm_stats_performance（团队合同与回款表现）
+  → crm_backlog_facts（待办事实，用于判断谁手上压着事）。
+  输出四段：
+  ① 排行现状：列出前 3 名与后 3 名（姓名 + 数值），数字必须来自工具返回；
+  ② 差异归因：结合"跟进次数 vs 合同金额"的组合，指出谁在"高投入低产出"、谁在"高产出待复盘"；
+  ③ 辅导建议：针对后 3 名各给 1 条具体辅导动作（做什么、什么时候、看什么指标验证）；
+  ④ 资源建议：一句话说明资源（线索/客户分配）该往哪调整。
+  只有 1 名成员时，直接说明"当前团队只有 1 人，无法做排行对比"。
+paramsSchema:
+  type: object
+  properties:
+    days:
+      type: string
+      title: 统计天数
+      description: 可选，默认 90 天；填 0 表示本年度
+  required: []
+context:
+  - key: page
+    title: 来源页面
+    required: false
+tools: [crm_stats_rank, crm_stats_performance, crm_backlog_facts]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

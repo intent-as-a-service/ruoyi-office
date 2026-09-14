@@ -1,0 +1,232 @@
+<script lang="ts" setup>
+import type { VxeTableGridOptions } from '#/adapter/vxe-table';
+import type { EmployeeRegularBillApi } from '#/api/hrm/employee-regular';
+
+import { onActivated, ref } from 'vue';
+import { useRouter } from 'vue-router';
+
+import { Page } from '@vben/common-ui';
+import { BpmProcessInstanceStatusEditValue } from '@vben/constants';
+import { useUserStore } from '@vben/stores';
+import { downloadFileFromBlobPart, isEmpty } from '@vben/utils';
+
+import { message } from 'ant-design-vue';
+
+import { ACTION_ICON, TableAction, useVbenVxeGrid } from '#/adapter/vxe-table';
+import {
+  deleteEmployeeRegularBill,
+  deleteEmployeeRegularBillList,
+  exportEmployeeRegularBill,
+  getEmployeeRegularBillPage,
+} from '#/api/hrm/employee-regular';
+import { $t } from '#/locales';
+
+import { useGridColumns, useGridFormSchema } from './data';
+
+defineOptions({ name: 'HrmEmployeeRegularBillList' });
+const userStore = useUserStore();
+const router = useRouter();
+
+/** 刷新表格 */
+function onRefresh() {
+  gridApi.query();
+}
+
+/** 新增员工转正申请单 */
+function handleCreate() {
+  router.push({
+    path: '/hrm/employee-relation/regular-info',
+    query: {
+      t: Date.now(), // 添加时间戳作为随机串
+    },
+  });
+}
+
+/** 删除员工转正申请单 */
+async function handleDelete(row: EmployeeRegularBillApi.EmployeeRegularBill) {
+  const hideLoading = message.loading({
+    content: $t('ui.actionMessage.deleting', [row.id]),
+    key: 'action_key_msg',
+  });
+  try {
+    await deleteEmployeeRegularBill(row.id as number);
+    message.success({
+      content: $t('ui.actionMessage.deleteSuccess', [row.id]),
+      key: 'action_key_msg',
+    });
+    onRefresh();
+  } finally {
+    hideLoading();
+  }
+}
+
+/** 批量删除员工转正申请单 */
+async function handleDeleteBatch() {
+  // 检查选中的记录是否都可以删除
+  const checkedRecords = gridApi.grid.getCheckboxRecords();
+  const notAllowedRecords = checkedRecords.filter(
+    (record: EmployeeRegularBillApi.EmployeeRegularBill) =>
+      !BpmProcessInstanceStatusEditValue.includes(
+        record.processStatus as number,
+      ),
+  );
+
+  if (notAllowedRecords.length > 0) {
+    const billCodes = notAllowedRecords
+      .map(
+        (record: EmployeeRegularBillApi.EmployeeRegularBill) =>
+          record.billCode || record.id,
+      )
+      .join(', ');
+    message.warning(`以下单据不允许删除：${billCodes}`);
+    return;
+  }
+
+  const hideLoading = message.loading({
+    content: $t('ui.actionMessage.deleting'),
+    key: 'action_key_msg',
+  });
+  try {
+    await deleteEmployeeRegularBillList(checkedIds.value);
+    message.success({
+      content: $t('ui.actionMessage.deleteSuccess'),
+      key: 'action_key_msg',
+    });
+    onRefresh();
+    checkedIds.value = [];
+  } finally {
+    hideLoading();
+  }
+}
+
+const checkedIds = ref<number[]>([]);
+function handleRowCheckboxChange({
+  records,
+}: {
+  records: EmployeeRegularBillApi.EmployeeRegularBill[];
+}) {
+  checkedIds.value = records
+    .map((item) => item.id!)
+    .filter((id): id is number => id !== undefined);
+}
+
+/** 导出表格 */
+async function handleExport() {
+  const data = await exportEmployeeRegularBill(
+    await gridApi.formApi.getValues(),
+  );
+  downloadFileFromBlobPart({ fileName: '员工转正申请单.xls', source: data });
+}
+
+const [Grid, gridApi] = useVbenVxeGrid({
+  formOptions: {
+    schema: useGridFormSchema(),
+    wrapperClass: 'grid-cols-4',
+    collapsed: true,
+  },
+  gridOptions: {
+    columns: useGridColumns(),
+    height: 'auto',
+    pagerConfig: {
+      enabled: true,
+    },
+    proxyConfig: {
+      ajax: {
+        query: async ({ page }, formValues) => {
+          return await getEmployeeRegularBillPage({
+            pageNo: page.currentPage,
+            pageSize: page.pageSize,
+            ...formValues,
+            companyId: userStore.userInfo?.companyId,
+            creator: userStore.userInfo?.id,
+          });
+        },
+      },
+    },
+    rowConfig: {
+      keyField: 'id',
+      isHover: true,
+    },
+    toolbarConfig: {
+      refresh: { code: 'query' },
+      search: true,
+    },
+  } as VxeTableGridOptions<EmployeeRegularBillApi.EmployeeRegularBill>,
+  gridEvents: {
+    checkboxAll: handleRowCheckboxChange,
+    checkboxChange: handleRowCheckboxChange,
+  },
+});
+
+// 页签切换时自动刷新表格数据
+onActivated(() => {
+  onRefresh();
+});
+</script>
+
+<template>
+  <Page auto-content-height>
+    <Grid table-title="员工转正申请单列表">
+      <template #toolbar-tools>
+        <TableAction
+          :actions="[
+            {
+              label: $t('ui.actionTitle.create'),
+              type: 'primary',
+              icon: ACTION_ICON.ADD,
+              auth: ['hrm:employee-regular-bill:create'],
+              onClick: handleCreate,
+            },
+            {
+              label: $t('ui.actionTitle.export'),
+              type: 'primary',
+              icon: ACTION_ICON.DOWNLOAD,
+              auth: ['hrm:employee-regular-bill:export'],
+              onClick: handleExport,
+            },
+            {
+              label: $t('ui.actionTitle.deleteBatch'),
+              type: 'primary',
+              danger: true,
+              icon: ACTION_ICON.DELETE,
+              disabled: isEmpty(checkedIds),
+              auth: ['hrm:employee-regular-bill:delete'],
+              onClick: handleDeleteBatch,
+            },
+          ]"
+        />
+      </template>
+      <template #actions="{ row }">
+        <TableAction
+          :actions="[
+            {
+              label: $t('common.delete'),
+              type: 'link',
+              danger: true,
+              ifShow: () =>
+                BpmProcessInstanceStatusEditValue.includes(
+                  row.processStatus as number,
+                ),
+              auth: ['hrm:employee-regular-bill:delete'],
+              popConfirm: {
+                title: $t('ui.actionMessage.deleteConfirm', [row.billCode]),
+                confirm: handleDelete.bind(null, row),
+              },
+            },
+            {
+              label: $t('common.delete'),
+              type: 'link',
+              danger: true,
+              ifShow: () =>
+                !BpmProcessInstanceStatusEditValue.includes(
+                  row.processStatus as number,
+                ),
+              disabled: true,
+              auth: ['hrm:employee-regular-bill:delete'],
+            },
+          ]"
+        />
+      </template>
+    </Grid>
+  </Page>
+</template>

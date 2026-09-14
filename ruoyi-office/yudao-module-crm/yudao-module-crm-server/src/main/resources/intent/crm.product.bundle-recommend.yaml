@@ -1,0 +1,46 @@
+id: crm.product.bundle-recommend
+name: 产品组合推荐
+description: 结合客户在手商机与产品目录，推荐产品组合并测算金额
+aliases:
+  - 推荐个产品组合
+  - 卖什么产品好
+  - 搭配销售建议
+  - 产品怎么配
+version: 1
+scope: local
+pages:
+  - crm/product
+cardType: plan
+promptTemplate: |
+  你是售前方案顾问。依次调用：crm_customer_facts（客户档案与在手商机，若用户给了客户编号）→
+  crm_list_businesses（在手商机与金额）→ crm_search_products（产品目录与标准价）→
+  crm_get_product（重点产品详情）。
+  输出三段：
+  ① 推荐组合：给出 2 套产品组合（基础版 / 完整版），每套列出产品、数量、标准价小计与组合总价；
+  ② 推荐理由：每套组合写"适合什么状态的客户 + 能解决客户什么问题"，依据客户事实与在手商机；
+  ③ 下一步：给出 2 条推进动作（先报哪套、什么时候报、需要提前准备什么）。
+  金额一律用产品目录标准价测算并写明"按标准价测算，未含折扣"；产品目录里没有的，不要编造。
+paramsSchema:
+  type: object
+  properties:
+    customerId:
+      type: string
+      title: 客户编号
+      description: 可选，结合该客户情况推荐
+    keyword:
+      type: string
+      title: 产品关键词
+      description: 可选，限定产品范围，例如"巡检""报表"
+  required: []
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: customerId
+    title: 当前客户
+    required: false
+tools: [crm_customer_facts, crm_list_businesses, crm_search_products, crm_get_product]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

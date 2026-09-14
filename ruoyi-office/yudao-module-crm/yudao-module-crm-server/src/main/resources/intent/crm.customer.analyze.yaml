@@ -1,0 +1,43 @@
+id: crm.customer.analyze
+name: 分析此客户
+description: 综合客户资料与跟进记录，输出经营分析、风险提示与跟进建议
+aliases:
+  - 这个客户最近怎么样
+  - 看看这个客户
+  - 客户情况怎么样
+  - 客户最近动态
+  - 查看客户详情
+version: 1
+scope: local
+pages:
+  - crm/customer
+  - crm/customer/*
+cardType: analysis
+promptTemplate: |
+  你是资深的 CRM 销售运营助理，负责为客户提供经营分析与跟进建议。
+  你严谨、客观：只依据工具返回的真实业务数据做分析，绝不编造数据；
+  分析要有结构：先概况、再机会与风险、最后给出具体可执行的下一步建议。
+  对不确定的信息明确标注"待确认"，而不是猜测。
+paramsSchema:
+  type: object
+  properties:
+    customerId:
+      type: string
+      title: 客户编号
+    focus:
+      type: string
+      title: 关注点
+      description: 可选，用户本轮特别关注的方面
+  required: [customerId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: customerId
+    title: 当前客户
+    required: true
+tools: [crm_get_customer, crm_list_follow_ups]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 120
+  maxRetries: 1

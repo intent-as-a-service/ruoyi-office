@@ -1,0 +1,214 @@
+pipeline {
+  agent any
+
+  tools {
+    // 需要在 Jenkins「全局工具配置」里配置一个 NodeJS，名称为 node20
+    nodejs 'node20'
+  }
+
+  environment {
+    // Vite 构建产物目录（相对于 web-antd 目录）
+    DIST_DIR = 'dist'
+    // 远程服务器配置名称（对应 Publish Over SSH 插件中的配置名）
+    REMOTE_SERVER = 'nginx-server'
+    // Nginx 部署目录（相对于 Publish Over SSH 配置的远程目录）
+    DEPLOY_PATH = 'web'
+    // 工作目录（Monorepo 中的应用目录）
+    APP_DIR = 'apps/web-antd'
+    // 部署时排除的目录或文件（使用逗号分隔，支持通配符）
+    // 示例：排除 dist/demo, dist/test, dist/*.map 等
+    // DEPLOY_EXCLUDES = '**/demo/**,**/test/**,**/*.map'
+    DEPLOY_EXCLUDES = ''
+    // Node.js 内存限制（单位：MB，默认 4096MB = 4GB）
+    // 如果构建仍然失败，可以增加到 6144 或 8192
+    NODE_MEMORY_LIMIT = '4096'
+
+    // ========== 流量统计配置 ==========
+    // 百度统计 ID（注册 https://tongji.baidu.com → 获取站点 ID）
+    // 可通过 Jenkins 构建参数覆盖；留空则不启用百度统计
+    VITE_APP_BAIDU_CODE = 'ede2dc454379d7def7b4363ff72f8824'
+    // Google Analytics 衡量 ID（注册 https://analytics.google.com → 创建 GA4 媒体资源 → 获取 G-XXXXXXXXXX）
+    // 可通过 Jenkins 构建参数覆盖；留空则不启用 Google Analytics
+    VITE_APP_GA_ID = ''
+  }
+
+  stages {
+    stage('1. 拉取代码') {
+      steps {
+        echo '🚀 开始拉取代码...'
+        checkout scm
+      }
+    }
+
+    stage('2. 环境检查') {
+      steps {
+        echo '🔍 检查构建环境...'
+        sh '''
+          echo "Node版本: $(node -v)"
+          echo "NPM版本: $(npm -v)"
+          echo "当前目录: $(pwd)"
+          ls -la
+          
+          # 检查 pnpm（使用 npx 不需要全局安装）
+          echo "pnpm版本: $(npx pnpm@latest -v)"
+        '''
+      }
+    }
+
+    stage('3. 安装依赖') {
+      steps {
+        echo '📦 开始安装依赖...'
+        script {
+          // Monorepo 需要在根目录安装依赖
+          // 使用 npx 运行 pnpm，无需全局安装
+          sh '''
+            # 使用 npx pnpm 安装依赖（Monorepo工作空间）
+            # 去掉 --frozen-lockfile 以确保内部包正确构建
+            npx pnpm@latest install --no-frozen-lockfile
+          '''
+        }
+      }
+    }
+
+    stage('4. 构建内部依赖包') {
+      steps {
+        echo '🔨 开始构建内部依赖包...'
+        sh '''
+          # 增加 Node.js 内存限制
+          export NODE_OPTIONS="--max-old-space-size=${NODE_MEMORY_LIMIT}"
+          
+          # 构建 Monorepo 内部的 packages（@vben-core/*, @vben/* 等）
+          # 使用 -r (recursive) 构建所有 workspace 包
+          # 使用 --filter 只构建 packages 目录下的包
+          npx pnpm@latest -r --filter "./packages/**" --filter "./internal/**" build || true
+          
+          echo "✓ 内部依赖包构建完成（或跳过）"
+        '''
+      }
+    }
+
+    stage('5. 构建应用') {
+      steps {
+        echo '🏗️  开始构建 Vben Admin 应用...'
+        dir(env.APP_DIR) {
+          sh '''
+            # 设置生产环境变量
+            export NODE_ENV=production
+            
+            # 增加 Node.js 内存限制（避免构建时内存溢出）
+            export NODE_OPTIONS="--max-old-space-size=${NODE_MEMORY_LIMIT}"
+            
+            echo "Node.js 内存限制: ${NODE_OPTIONS}"
+            echo "当前内存使用:"
+            free -h || echo "无法获取内存信息（可能不是 Linux 系统）"
+            
+            # 使用 npx pnpm 执行构建
+            npx pnpm@latest build
+            
+            # 验证构建产物
+            if [ -d "${DIST_DIR}" ]; then
+              echo "✓ 构建成功，产物目录: ${DIST_DIR}"
+              ls -lh ${DIST_DIR} | head -n 10
+              echo "产物大小:"
+              du -sh ${DIST_DIR}
+            else
+              echo "✗ 构建失败：产物目录不存在"
+              exit 1
+            fi
+          '''
+        }
+      }
+    }
+
+    stage('6. 部署到 Nginx') {
+      steps {
+        echo '🚚 开始部署到远程服务器...'
+        script {
+          // 使用 Publish Over SSH 插件部署
+          sshPublisher(
+            publishers: [
+              sshPublisherDesc(
+                // 配置名称（对应 Jenkins 系统配置 -> Publish over SSH -> SSH Servers 中的 Name）
+                configName: env.REMOTE_SERVER,
+                transfers: [
+                  sshTransfer(
+                    // 清理远程目录（可选，谨慎使用）
+                    cleanRemote: true,
+                    // 排除的文件或目录（支持通配符，多个用逗号分隔）
+                    // 示例：'**/demo/**,**/test/**,**/*.map,**/*.sourcemap'
+                    // 注意：路径相对于 sourceFiles，即相对于 dist 目录
+                    excludes: env.DEPLOY_EXCLUDES ?: '',
+                    // 执行命令失败时是否继续
+                    execTimeout: 120000,
+                    // 是否展平目录结构
+                    flatten: false,
+                    // 创建远程目录（如果不存在）
+                    makeEmptyDirs: true,
+                    // 传输完成后不删除工作空间文件
+                    noDefaultExcludes: false,
+                    // 文件匹配模式（排除文件）
+                    patternSeparator: '[, ]+',
+                    // 远程目录（相对于 SSH Server 配置的 Remote Directory）
+                    remoteDirectory: env.DEPLOY_PATH,
+                    // 去掉前缀：上传时不带 apps/web-antd/dist 这几层目录
+                    removePrefix: "${env.APP_DIR}/${env.DIST_DIR}",
+                    // 要上传的文件：dist 目录下的所有内容
+                    sourceFiles: "${env.APP_DIR}/${env.DIST_DIR}/**"
+                  )
+                ],
+                // 传输成功时的提示
+                usePromotionTimestamp: false,
+                useWorkspaceInPromotion: false,
+                verbose: true
+              )
+            ]
+          )
+        }
+      }
+    }
+
+    stage('7. 验证部署') {
+      steps {
+        echo '✅ 验证部署结果...'
+        script {
+          // 可以添加健康检查，例如访问站点首页
+          sh """
+            echo "部署完成！"
+            echo "访问地址: http://127.0.0.1/${DEPLOY_PATH}/"
+            echo ""
+            echo "温馨提示："
+            echo "  - 如果页面无法访问，请检查 Nginx 配置"
+            echo "  - 如果资源404，请检查 base 路径配置"
+            echo "  - 如果API报错，请检查后端服务状态"
+          """
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo '✅ 构建与部署成功！'
+      echo '📝 部署信息：'
+      echo "  - 构建时间: ${new Date()}"
+      echo "  - Git 提交: ${env.GIT_COMMIT ?: 'N/A'}"
+      echo "  - 构建编号: ${env.BUILD_NUMBER}"
+      echo "  - 访问地址: http://127.0.0.1/web/"
+    }
+    failure {
+      echo '❌ 构建或部署失败！'
+      echo '请查看上方日志排查问题'
+      echo ''
+      echo '常见问题：'
+      echo '  1. pnpm未安装：检查环境检查阶段'
+      echo '  2. 依赖安装失败：检查网络或pnpm-lock.yaml'
+      echo '  3. 构建失败：检查TypeScript错误或配置'
+      echo '  4. 部署失败：检查SSH连接和Nginx配置'
+    }
+    always {
+      echo '🧹 清理构建环境...'
+      // 可以在这里添加清理操作，如删除临时文件
+      // cleanWs()
+    }
+  }
+}

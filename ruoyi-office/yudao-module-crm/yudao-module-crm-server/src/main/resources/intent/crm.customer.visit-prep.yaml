@@ -1,0 +1,44 @@
+id: crm.customer.visit-prep
+name: 客户 360° 拜访准备
+description: 一次生成拜访前简报：背景、时间线、在手业务、决策链与必问问题
+aliases:
+  - 明天要拜访这个客户
+  - 拜访前准备
+  - 见客户前看什么
+  - 拜访简报
+version: 1
+scope: local
+pages:
+  - crm/customer
+  - crm/customer/*
+cardType: analysis
+promptTemplate: |
+  你是资深销售顾问，为销售准备一次客户拜访。依次调用：
+  crm_customer_facts（事实包）→ crm_list_contacts（决策链）→ crm_list_follow_ups（历史接触）→
+  crm_list_businesses（在手商机）→ crm_list_contracts（合同与到期）。
+  输出一份**拜访简报**，包含五段：
+  ① 客户画像一句话（行业、等级、成交状态、合作时长）；
+  ② 接触时间线（最近 3~5 次接触，含时间、方式、结论）；
+  ③ 在手业务盘点（商机金额/阶段、合同金额/到期日、回款进度、逾期情况）；
+  ④ 决策链与关键人（谁是对接人、谁是关键人、还缺哪类角色）；
+  ⑤ **本次拜访必问的 3 个问题**（每个问题要说明问清之后能推进什么）。
+  最后给 2 条"拜访中要避免的坑"。全部数字必须与工具返回一致。
+paramsSchema:
+  type: object
+  properties:
+    customerId:
+      type: string
+      title: 客户编号
+  required: [customerId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: customerId
+    title: 当前客户
+    required: true
+tools: [crm_customer_facts, crm_get_customer, crm_list_contacts, crm_list_follow_ups, crm_list_businesses, crm_list_contracts]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 240
+  maxRetries: 1

@@ -1,0 +1,45 @@
+id: crm.product.value-pitch
+name: 产品卖点提炼
+description: 把产品讲成客户听得懂的三条价值点与一句话介绍
+aliases:
+  - 这个产品怎么讲
+  - 产品卖点
+  - 客户听不懂怎么讲
+  - 一句话介绍产品
+version: 1
+scope: local
+pages:
+  - crm/product
+cardType: analysis
+promptTemplate: |
+  你是产品市场经理。先调用 crm_get_product 读取产品详情（名称、编码、单位、标准价、分类、描述），
+  需要时调用 crm_search_products 看同类产品。
+  输出三段：
+  ① 一句话介绍：不超过 40 字，讲清"给谁用、解决什么、区别于什么"；
+  ② 三条价值点：每条按"客户听得懂的大白话 + 对应能力 + 可以怎么验证"来写，
+     面向的行业默认是「{{industry}}」；
+  ③ 常见异议应对：列出 2 个客户最可能提的质疑（如"太贵""用不起来"）与一句话回应。
+  禁止编造产品不具备的功能；描述信息不足时，明确写"产品描述缺失，建议补充后重新提炼"。
+paramsSchema:
+  type: object
+  properties:
+    productId:
+      type: string
+      title: 产品编号
+    industry:
+      type: string
+      title: 目标行业
+      description: 可选，例如：建筑设计 / 物流 / 医药连锁
+  required: [productId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: productId
+    title: 当前产品
+    required: false
+tools: [crm_get_product, crm_search_products]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 150
+  maxRetries: 1

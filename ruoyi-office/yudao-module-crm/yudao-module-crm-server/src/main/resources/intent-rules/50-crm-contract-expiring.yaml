@@ -1,0 +1,28 @@
+# =============================================================
+# 文件名前缀 = 待办分组的展示优先级（越小越靠前；面板默认只并排展示 5 组）
+# CRM 事实规则：我负责的合同即将到期 → 提示 + 一键风险审查
+#
+# 一条规则 = 查询(dataset) + 条件(filter) + 输出模板(badge/items) + 参数映射(params)
+# 事实由 CrmIntentFactProvider 供给（口径与「待办事项 → 即将到期的合同」一致）。
+#
+# 改文案、改阈值、改挂载页面只动本文件即可；写错（意图不存在 / 参数不在入参 Schema 内）
+# 会在启动时直接失败，不会静默失效。
+# =============================================================
+- id: crm.contract.expiring
+  intent: crm.contract.risk-review
+  dataset: crm.expiring-contracts
+  scope:
+    # 只在合同相关页面与待办页面提示：合同到期提醒是「合同维度的待办」，
+    # 挂在客户/商机/产品页只会挤占当页更相关的建议；空串 = 意图中心
+    page: ["crm/contract", "crm/contract/*", "crm/backlog", ""]
+  badge:
+    text: "{{count}} 份合同即将到期"
+    level: warning
+  items:
+    limit: 5
+    title: "合同「{{row.name}}」{{row.endTime | expiryText}}"
+    subtitle: "编号 {{row.no}} · 点击一键做风险审查"
+    reason: "我负责的合同临近到期，建议提前审查履约与续约风险"
+    params:
+      contractId: { from: row.id, type: string }
+      focus: { value: "到期与续约风险" }

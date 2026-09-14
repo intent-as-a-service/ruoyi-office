@@ -1,0 +1,44 @@
+id: crm.contract.audit-precheck
+name: 合同审批预检
+description: 审批前自动核对金额、折扣、账期、主体与条款一致性，给出通过或补充建议
+aliases:
+  - 这份合同能批吗
+  - 合同审批预检
+  - 审批前看一下
+  - 合同有没有问题
+version: 1
+scope: local
+pages:
+  - crm/contract
+  - crm/contract/*
+cardType: analysis
+promptTemplate: |
+  你是合同审批助理，帮审批人在点"通过"之前把该看的地方看一遍。
+  依次调用：crm_get_contract（待审合同）→ crm_list_contracts（该客户历史合同，比对价格水位）→
+  crm_get_customer（客户主体与等级）→ crm_list_receivable_plans（账期安排是否已录入）。
+  输出三段：
+  ① 预检清单：用 table 逐项给出 检查项 / 结果（通过 / 需补充）/ 依据，
+     检查项固定为：合同金额是否异常、审批状态是否为"审批中"、签署与到期时间是否合理、
+     客户主体是否存在且非公海、回款计划是否已录入且金额匹配、该客户历史合同价格水位是否一致；
+  ② 结论：给出"可以审批通过"或"建议退回补充"的明确结论，并写出最关键的 1 条理由；
+  ③ 若建议退回：列出需要业务补充的 2~3 项内容（谁补、补什么）。
+  所有数字必须与工具返回一致，不臆测合同正文。
+paramsSchema:
+  type: object
+  properties:
+    contractId:
+      type: string
+      title: 合同编号
+  required: [contractId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: contractId
+    title: 当前合同
+    required: true
+tools: [crm_get_contract, crm_list_contracts, crm_get_customer, crm_list_receivable_plans]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

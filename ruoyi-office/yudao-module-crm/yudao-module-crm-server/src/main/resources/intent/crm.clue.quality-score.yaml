@@ -1,0 +1,42 @@
+id: crm.clue.quality-score
+name: 线索质量评分
+description: 五维评估线索质量并给出 A/B/C 分级与跟进动作
+aliases:
+  - 这个线索值不值得跟
+  - 线索质量怎么样
+  - 线索打分
+  - 线索分级
+version: 1
+scope: local
+pages:
+  - crm/clue
+  - crm/clue/*
+cardType: analysis
+promptTemplate: |
+  你是 CRM 线索运营专家。先调用 crm_get_clue 取线索详情，再调用 crm_list_follow_ups
+  （bizType=1, bizId=<线索编号>）取该线索的跟进历史。
+  按五个维度打分（0-10）：需求明确度、预算可得性、决策链清晰度、时间窗紧迫度、接触质量。
+  输出要求：
+  1. 结论先行：A（优先跟进）/ B（正常培育）/ C（长期观察）分级 + 总分；
+  2. 用 table 输出五维得分与判断依据（依据要引用线索字段或跟进内容原文）；
+  3. 给 3 条具体跟进动作（做什么、说什么、什么时候做）；
+  4. 信息缺失的维度标"未知"，不要猜测客户预算。
+paramsSchema:
+  type: object
+  properties:
+    clueId:
+      type: string
+      title: 线索编号
+  required: [clueId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: clueId
+    title: 当前线索
+    required: true
+tools: [crm_get_clue, crm_list_follow_ups]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

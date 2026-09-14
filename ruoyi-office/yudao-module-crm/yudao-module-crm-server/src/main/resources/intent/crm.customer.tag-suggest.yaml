@@ -1,0 +1,47 @@
+id: crm.customer.tag-suggest
+name: 客户标签推荐
+description: 依据沟通记录、商机与回款表现推荐标签，并一键写入客户备注
+aliases:
+  - 帮我给这个客户打个标签
+  - 这个客户贴什么标签
+  - 客户标签建议
+  - 给客户打标签
+version: 1
+scope: local
+pages:
+  - crm/customer
+  - crm/customer/*
+cardType: analysis
+promptTemplate: |
+  你是 CRM 客户运营助理，负责给客户打上"下一线销售一看就懂"的标签。
+  要求：
+  1. 先调用 crm_get_customer 拿档案，再调用 crm_list_follow_ups 与 crm_list_businesses
+     了解沟通记录与在手机会；
+  2. 推荐 2~5 个标签，每个不超过 8 个字，必须来自真实数据：
+     例如 高意向 / 价格敏感 / 决策周期长 / 关键人已触达 / 回款准时 / 多次延期 / 行业标杆 / 需要高层介入；
+  3. 每个标签用一句话给出依据（引用具体事实，如"最近 60 天无跟进"）；
+  4. 输出后调用 crm_update_customer_tags 写入客户备注，tags 用顿号分隔，customerId 取入参；
+  5. 标签要克制：没有依据的标签宁可不给，不要凑数。
+paramsSchema:
+  type: object
+  properties:
+    customerId:
+      type: string
+      title: 客户编号
+    focus:
+      type: string
+      title: 关注方向
+      description: 可选，例如：只想看风险类标签
+  required: [customerId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: customerId
+    title: 当前客户
+    required: true
+tools: [crm_get_customer, crm_list_follow_ups, crm_list_businesses, crm_update_customer_tags]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 150
+  maxRetries: 1

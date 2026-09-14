@@ -1,0 +1,175 @@
+/* 菜单样式 - 蓝色渐变风格（与欢迎组件一致） */
+
+/* 菜单图标显示/隐藏控制样式 - 通过偏好设置控制 */
+
+/* 当偏好设置中关闭菜单图标时隐藏 */
+body[data-navigation-show-icon='false'] .vben-menu .vben-menu__icon,
+body[data-navigation-show-icon='false'] .vben-normal-menu__icon,
+body[data-navigation-show-icon='false'] .vben-mixed-menu .vben-menu__icon,
+body[data-navigation-show-icon='false'] .vben-sub-menu .vben-menu__icon {
+  display: none !important;
+}
+
+/* 当图标隐藏时调整菜单项布局 */
+body[data-navigation-show-icon='false'] .vben-menu .vben-menu__item {
+  padding-left: 16px !important;
+}
+
+/* 默认显示图标 */
+body[data-navigation-show-icon='true'] .vben-menu .vben-menu__icon,
+body[data-navigation-show-icon='true'] .vben-normal-menu__icon,
+body[data-navigation-show-icon='true'] .vben-mixed-menu .vben-menu__icon,
+body[data-navigation-show-icon='true'] .vben-sub-menu .vben-menu__icon {
+  display: inline-flex !important;
+}
+
+/* 兼容旧的类名方式（如果有的话） */
+body.hide-menu-icons .vben-menu .vben-menu__icon,
+body.hide-menu-icons .vben-normal-menu__icon,
+body.hide-menu-icons .vben-mixed-menu .vben-menu__icon,
+body.hide-menu-icons .vben-sub-menu .vben-menu__icon {
+  display: none !important;
+}
+
+/* ========== 菜单样式优化 - 蓝色渐变风格 ========== */
+
+/* 侧边栏菜单背景 */
+.vben-layout-sider,
+.vben-layout-sider .vben-menu {
+  background: linear-gradient(
+    135deg,
+    #3b82f6 0%,
+    #2563eb 50%,
+    #1d4ed8 100%
+  ) !important;
+  border-right: 1px solid rgb(255 255 255 / 10%) !important;
+}
+
+/* 菜单项文字颜色 */
+.vben-menu .vben-menu__item,
+.vben-menu .vben-sub-menu__title {
+  color: rgb(255 255 255 / 90%) !important;
+}
+
+/* 菜单项悬停效果 */
+.vben-menu .vben-menu__item:hover,
+.vben-menu .vben-sub-menu__title:hover {
+  color: #fff !important;
+  background: rgb(255 255 255 / 15%) !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+}
+
+/* 菜单项激活状态 */
+.vben-menu .vben-menu__item.is-active,
+.vben-menu .vben-menu__item.is-active:hover {
+  font-weight: 500 !important;
+  color: #fff !important;
+  background: rgb(255 255 255 / 20%) !important;
+  border-radius: 6px !important;
+}
+
+/* 子菜单背景 */
+.vben-menu .vben-sub-menu {
+  background: transparent !important;
+}
+
+/* 子菜单项样式 */
+.vben-menu .vben-sub-menu .vben-menu__item {
+  padding-left: 48px !important;
+}
+
+.vben-menu .vben-sub-menu .vben-menu__item:hover {
+  background: rgb(255 255 255 / 12%) !important;
+}
+
+.vben-menu .vben-sub-menu .vben-menu__item.is-active {
+  background: rgb(255 255 255 / 18%) !important;
+}
+
+/* 菜单图标颜色 */
+.vben-menu .vben-menu__icon,
+.vben-menu .vben-sub-menu__icon {
+  color: rgb(255 255 255 / 85%) !important;
+}
+
+.vben-menu .vben-menu__item:hover .vben-menu__icon,
+.vben-menu .vben-sub-menu__title:hover .vben-sub-menu__icon {
+  color: #fff !important;
+}
+
+.vben-menu .vben-menu__item.is-active .vben-menu__icon {
+  color: #fff !important;
+}
+
+/* 菜单折叠/展开图标 */
+.vben-menu .vben-sub-menu__arrow {
+  color: rgb(255 255 255 / 80%) !important;
+}
+
+.vben-menu .vben-sub-menu__title:hover .vben-sub-menu__arrow {
+  color: rgb(255 255 255 / 95%) !important;
+}
+
+/* 菜单分隔线 */
+.vben-menu .vben-menu-divider {
+  margin: 8px 16px !important;
+  background: rgb(255 255 255 / 15%) !important;
+}
+
+/* 菜单组标题 */
+.vben-menu .vben-menu-group__title {
+  padding: 8px 16px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: rgb(255 255 255 / 70%) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+
+/* 菜单滚动条样式 */
+.vben-menu::-webkit-scrollbar {
+  width: 6px !important;
+}
+
+.vben-menu::-webkit-scrollbar-track {
+  background: rgb(255 255 255 / 5%) !important;
+  border-radius: 3px !important;
+}
+
+.vben-menu::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 20%) !important;
+  border-radius: 3px !important;
+}
+
+.vben-menu::-webkit-scrollbar-thumb:hover {
+  background: rgb(255 255 255 / 30%) !important;
+}
+
+/* 深色模式适配 */
+[data-theme='dark'] .vben-layout-sider,
+[data-theme='dark'] .vben-layout-sider .vben-menu {
+  background: linear-gradient(
+    135deg,
+    #1e40af 0%,
+    #1e3a8a 50%,
+    #1e3a8a 100%
+  ) !important;
+}
+
+[data-theme='dark'] .vben-menu .vben-menu__item:hover,
+[data-theme='dark'] .vben-menu .vben-sub-menu__title:hover {
+  background: rgb(255 255 255 / 12%) !important;
+}
+
+[data-theme='dark'] .vben-menu .vben-menu__item.is-active {
+  background: rgb(255 255 255 / 18%) !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .vben-layout-sider,
+  .vben-layout-sider .vben-menu {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+  }
+}

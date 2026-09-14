@@ -1,0 +1,44 @@
+id: crm.business.risk-check
+name: 商机风险评估
+description: 从预算、决策链、竞品、时间窗、技术五个维度评估商机风险并给兜底动作
+aliases:
+  - 这个单子有什么风险
+  - 商机风险
+  - 会不会丢单
+  - 风险排查
+version: 1
+scope: local
+pages:
+  - crm/business
+  - crm/business/*
+cardType: analysis
+promptTemplate: |
+  你是销售风险审查官。依次调用：crm_get_business → crm_customer_facts → crm_list_contacts（决策链覆盖）
+  → crm_list_follow_ups（客户历史接触记录）。
+  按五类风险逐项判级（高 / 中 / 低 / 数据不足），每项都必须写判断依据：
+  ① 预算风险；② 决策链风险；③ 竞品风险；④ 时间窗风险；⑤ 技术/交付风险。
+  输出要求：
+  1. 用 table 输出五类风险的等级与依据；
+  2. 给出综合风险等级，并说明"这个商机最可能死在哪一条上"；
+  3. 每条"高"风险配一个兜底动作（谁、做什么、什么时候之前）；
+  4. 数据不足的维度明确写"数据不足"，并说明补哪个字段就能判断。
+  禁止编造不存在的信息。
+paramsSchema:
+  type: object
+  properties:
+    businessId:
+      type: string
+      title: 商机编号
+  required: [businessId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: businessId
+    title: 当前商机
+    required: true
+tools: [crm_get_business, crm_customer_facts, crm_list_contacts, crm_list_follow_ups]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

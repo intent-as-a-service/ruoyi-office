@@ -1,0 +1,70 @@
+/* 统一的菜单激活状态样式 - 使用CSS变量支持主题切换 */
+
+/* Ant Design Menu 组件样式 */
+.menu-unified .ant-menu-item-selected {
+  font-weight: 500 !important;
+  color: hsl(var(--primary)) !important; /* 使用主题色 */
+  background-color: hsl(var(--primary) / 10%) !important; /* 使用主题色 */
+  border-radius: 0 !important; /* 去掉圆角 */
+}
+
+/* 去掉右侧蓝线 */
+.menu-unified .ant-menu-item-selected::after {
+  display: none !important;
+}
+
+.menu-unified .ant-menu-item:hover {
+  color: hsl(var(--primary)) !important; /* 使用主题色 */
+  background-color: hsl(var(--accent)) !important; /* 使用accent色 */
+  border-radius: 0 !important; /* 去掉圆角 */
+  transform: translateX(2px); /* 添加悬停效果 */
+}
+
+.menu-unified .ant-menu-item {
+  height: auto !important; /* 自动高度 */
+  padding: 8px !important; /* 统一内边距 - 与企业云盘 p-2 保持一致 */
+  margin: 8px 0 !important; /* 统一外边距 - 与企业云盘 space-y-2 保持一致 */
+  line-height: 1.5 !important; /* 行高 */
+  border-radius: 0 !important; /* 去掉圆角 */
+  transition: all 0.2s ease !important;
+}
+
+/* 菜单容器样式 */
+.menu-unified {
+  padding: 0 !important; /* 移除容器内边距，让菜单项贴边 */
+}
+
+/* 菜单项间距调整 */
+.menu-unified .ant-menu-item:first-child {
+  margin-top: 0 !important; /* 第一个菜单项顶部无边距 */
+}
+
+.menu-unified .ant-menu-item:last-child {
+  margin-bottom: 0 !important; /* 最后一个菜单项底部无边距 */
+}
+
+/* 自定义 div 菜单项样式 */
+.menu-item-unified {
+  position: relative;
+  padding: 8px; /* 统一内边距 - 与企业云盘 p-2 保持一致 */
+  margin: 8px 0; /* 统一外边距 - 与企业云盘 space-y-2 保持一致 */
+  border-radius: 0; /* 去掉圆角 */
+  transition: all 0.2s ease;
+}
+
+.menu-item-unified:hover {
+  color: hsl(var(--primary)) !important; /* 使用主题色 */
+  background-color: hsl(var(--accent)) !important; /* 使用accent色 */
+  transform: translateX(2px);
+}
+
+.menu-item-unified.active {
+  font-weight: 500 !important;
+  color: hsl(var(--primary)) !important; /* 使用主题色 */
+  background-color: hsl(var(--primary) / 10%) !important; /* 使用主题色 */
+}
+
+/* 去掉右侧蓝线 */
+.menu-item-unified.active::after {
+  display: none;
+}

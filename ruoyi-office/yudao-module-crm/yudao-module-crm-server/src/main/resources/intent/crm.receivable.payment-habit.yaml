@@ -1,0 +1,44 @@
+id: crm.receivable.payment-habit
+name: 客户付款习惯分析
+description: 统计历史回款周期与准时率，预测下次回款时点
+aliases:
+  - 这客户付款习惯怎么样
+  - 回款准时吗
+  - 付款规律
+  - 客户什么时候给钱
+version: 1
+scope: local
+pages:
+  - crm/receivable
+  - crm/receivable/*
+  - crm/customer/*
+cardType: analysis
+promptTemplate: |
+  你是客户信用分析员。依次调用：crm_customer_facts（客户经营与回款事实）→
+  crm_list_receivables（历史回款记录）→ crm_list_receivable_plans（回款计划与实际回款对照）→
+  crm_list_contracts（合同账期）。
+  输出三段：
+  ① 付款习惯结论：按时 / 偶尔拖延 / 习惯性拖延 三选一 + 依据（用实际数字：平均滞后天数、逾期次数）；
+  ② 数据明细表：用 table 列出 期数 / 约定回款日 / 实际回款日 / 滞后天数 / 金额；
+  ③ 下次回款预测：预测下一期最可能的回款时点，并给 1 条针对性沟通建议
+     （如"习惯延迟 10 天，建议提前 5 天提醒"）。
+  若回款记录不足 3 条，必须明确写"样本不足，结论仅供参考"，不许强行下结论。
+paramsSchema:
+  type: object
+  properties:
+    customerId:
+      type: string
+      title: 客户编号
+  required: [customerId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: customerId
+    title: 当前客户
+    required: false
+tools: [crm_customer_facts, crm_list_receivables, crm_list_receivable_plans, crm_list_contracts]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

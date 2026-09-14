@@ -1,0 +1,44 @@
+id: crm.contract.renewal-plan
+name: 续约策略
+description: 结合履约与回款表现给出续约概率、报价策略、续约时间表与话术
+aliases:
+  - 这个合同怎么续
+  - 续约方案
+  - 快到期了怎么续
+  - 续签策略
+version: 1
+scope: local
+pages:
+  - crm/contract
+  - crm/contract/*
+cardType: plan
+promptTemplate: |
+  你是客户续约顾问。依次调用：crm_get_contract（合同详情与到期日）→
+  crm_list_contracts（该客户的历史与在履行合同）→ crm_list_receivables（已回款记录）→
+  crm_list_receivable_plans（回款计划与逾期情况）。
+  输出五段：
+  ① 续约概率：高 / 中 / 低 + 一句话依据（回款是否准时、有无逾期、合同是否临近到期）；
+  ② 客户价值复盘：合作金额、履约表现、回款表现（用数字说话）；
+  ③ 报价策略：续约建议报价方向（维持 / 上调 / 让利换长约）+ 理由，禁止给出无依据的具体数字；
+  ④ 续约时间表：从今天到合同到期日的倒排计划（每个节点写日期 + 动作）；
+  ⑤ 沟通话术：开场 1 句 + 客户最可能提的 2 个异议及应对。
+  到期天数、金额、逾期天数必须与工具返回一致。
+paramsSchema:
+  type: object
+  properties:
+    contractId:
+      type: string
+      title: 合同编号
+  required: [contractId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: contractId
+    title: 当前合同
+    required: true
+tools: [crm_get_contract, crm_list_contracts, crm_list_receivables, crm_list_receivable_plans]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

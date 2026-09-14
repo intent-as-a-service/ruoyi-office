@@ -1,0 +1,421 @@
+/**
+ * 宇擎后端 yudao-server 自动化部署 Pipeline
+ *
+ * 功能：
+ * - 从 Git 仓库拉取代码
+ * - Maven 构建生成 JAR 包
+ * - 通过 SSH 传输 JAR 和 Dockerfile 到目标服务器
+ * - 在目标服务器构建 Docker 镜像并启动容器
+ *
+ * 前置条件：
+ * - Jenkins 已安装 Maven Integration Plugin
+ * - Jenkins 已安装 SSH Agent Plugin 或 Publish Over SSH Plugin
+ * - Jenkins 已配置 JDK 17+ 和 Maven 3.8+
+ * - 目标服务器已安装 Docker
+ * - 目标服务器已部署 MySQL 和 Redis
+ */
+
+pipeline {
+    agent any
+
+    // 工具配置
+    tools {
+        jdk 'jdk17'      // 对应 Jenkins 全局工具配置中的 JDK 名称
+        maven 'maven3'   // 对应 Jenkins 全局工具配置中的 Maven 名称
+    }
+
+    // 环境变量
+    environment {
+        // 目标服务器配置
+        REMOTE_HOST = '192.168.30.130'
+        REMOTE_USER = 'root'
+        REMOTE_PATH = '/data/app/yudao-server'
+
+        // SSH 凭据 ID（对应 Jenkins 凭据配置）
+        SSH_CRED = 'server-130-ssh'
+
+        // Docker 镜像配置
+        IMAGE_NAME = 'yudao-server'
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        CONTAINER_NAME = 'yudao-server'
+
+        // 应用配置
+        APP_PORT = '48080'
+        SPRING_PROFILE = 'prod'
+
+        // JVM 配置（可根据服务器内存调整）
+        JAVA_OPTS = '-Xms1024m -Xmx4096m -Djava.security.egd=file:/dev/./urandom'
+
+        // 项目路径
+        PROJECT_DIR = 'yudao-server'
+    }
+
+    // 构建参数
+    parameters {
+        choice(
+            name: 'DEPLOY_ENV',
+            choices: ['prod', 'test'],
+            description: '选择部署环境'
+        )
+        string(
+            name: 'JAVA_OPTS_OVERRIDE',
+            defaultValue: '',
+            description: '覆盖默认的 JVM 参数（可选）'
+        )
+        booleanParam(
+            name: 'SKIP_TESTS',
+            defaultValue: true,
+            description: '是否跳过单元测试'
+        )
+        booleanParam(
+            name: 'CLEAN_OLD_IMAGES',
+            defaultValue: true,
+            description: '是否清理旧的 Docker 镜像'
+        )
+    }
+
+    // 构建触发器
+    // 如果需要自动触发，可以取消注释以下配置：
+    // triggers {
+    //     githubPush()  // GitHub webhook 触发
+    //     // 或使用 cron 定时触发
+    //     // cron('H 2 * * *')  // 每天凌晨2点构建
+    // }
+
+    stages {
+        /**
+         * 阶段1: 拉取代码
+         */
+        stage('1. 拉取代码') {
+            steps {
+                echo '📥 开始拉取代码...'
+                checkout scm
+                script {
+                    // 获取 Git 提交信息
+                    env.GIT_COMMIT_SHORT = sh(
+                        script: 'git rev-parse --short HEAD',
+                        returnStdout: true
+                    ).trim()
+                    env.GIT_COMMIT_MSG = sh(
+                        script: 'git log -1 --pretty=%B',
+                        returnStdout: true
+                    ).trim()
+                    env.GIT_AUTHOR = sh(
+                        script: 'git log -1 --pretty=%an',
+                        returnStdout: true
+                    ).trim()
+                }
+                echo "✓ 代码拉取完成"
+                echo "  提交: ${env.GIT_COMMIT_SHORT}"
+                echo "  作者: ${env.GIT_AUTHOR}"
+                echo "  信息: ${env.GIT_COMMIT_MSG}"
+            }
+        }
+
+        /**
+         * 阶段2: 环境检查（可选，可跳过以加快构建）
+         */
+        stage('2. 环境检查') {
+            when {
+                expression { env.BUILD_NUMBER == '1' || params.DEPLOY_ENV == 'test' }
+            }
+            steps {
+                echo '🔍 检查构建环境...'
+                sh '''
+                    echo "Java 版本:"
+                    java -version
+                    
+                    echo ""
+                    echo "Maven 版本:"
+                    mvn -version
+                '''
+                echo "✓ 环境检查完成"
+            }
+        }
+
+        /**
+         * 阶段3: Maven 构建（优化：并行构建、增量编译）
+         */
+        stage('3. Maven 构建') {
+            steps {
+                echo '🔨 开始 Maven 构建...'
+                script {
+                    def skipTestsFlag = params.SKIP_TESTS ? '-DskipTests' : ''
+                    // 优化：使用并行构建（-T 1C 表示使用所有可用 CPU 核心）
+                    // 优化：跳过不必要的清理（增量构建更快）
+                    // 优化：使用批处理模式减少输出
+                    def mavenOpts = '-T 1C -B'
+                    
+                    // 在项目根目录执行 Maven 构建
+                    sh """
+                        # 清理并构建
+                        mvn clean package '-Dmaven.test.skip=true'  '-Dskip.repackage=true' -pl ${PROJECT_DIR} -am -Pprod
+                        
+                        # 单体模式 mvn clean package -am -pl yudao-server -Dmaven.test.skip=true -Dskip.repackage=true	
+                        # 微服务模式 mvn clean package -am -pl yudao-server -Dmaven.test.skip=true	
+                        # 验证构建产物
+                        if [ -f "${PROJECT_DIR}/target/yudao-server.jar" ]; then
+                            echo "✓ 构建成功"
+                            echo "  JAR 文件大小:"
+                            ls -lh ${PROJECT_DIR}/target/yudao-server.jar
+                        else
+                            echo "✗ 构建失败：JAR 文件不存在"
+                            exit 1
+                        fi
+                    """
+                }
+            }
+        }
+
+        /**
+         * 阶段4: 准备部署文件
+         */
+        stage('4. 准备部署文件') {
+            steps {
+                echo '📦 准备部署文件...'
+                sh """
+                    # 创建部署目录
+                    mkdir -p deploy
+                    
+                    # 复制 JAR 文件
+                    cp ${PROJECT_DIR}/target/yudao-server.jar deploy/
+                    
+                    # 复制 Dockerfile
+                    cp ${PROJECT_DIR}/Dockerfile deploy/
+                    
+                    # 显示部署文件
+                    echo "部署文件列表:"
+                    ls -lh deploy/
+                """
+                echo "✓ 部署文件准备完成"
+            }
+        }
+
+        /**
+         * 阶段5: 传输文件到目标服务器
+         */
+        stage('5. 传输文件') {
+            steps {
+                echo '🚚 开始传输文件到目标服务器...'
+                sshagent(credentials: [env.SSH_CRED]) {
+                    sh """
+                        # 确保远程目录存在
+                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                            ${REMOTE_USER}@${REMOTE_HOST} \
+                            "mkdir -p ${REMOTE_PATH}"
+                        
+                        # 传输部署文件
+                        echo "传输 JAR 文件..."
+                        scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                            deploy/yudao-server.jar \
+                            ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
+                        
+                        echo "传输 Dockerfile..."
+                        scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                            deploy/Dockerfile \
+                            ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
+                        
+                        echo "✓ 文件传输完成"
+                    """
+                }
+            }
+        }
+
+        /**
+         * 阶段6: 构建 Docker 镜像
+         */
+        stage('6. 构建 Docker 镜像') {
+            steps {
+                echo '🐳 开始构建 Docker 镜像...'
+                sshagent(credentials: [env.SSH_CRED]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                            ${REMOTE_USER}@${REMOTE_HOST} << 'ENDSSH'
+                            
+                            cd ${REMOTE_PATH}
+                            
+                            # 准备 Dockerfile 目录结构
+                            mkdir -p target
+                            mv yudao-server.jar target/
+                            
+                            # 构建 Docker 镜像
+                            echo "构建镜像: ${IMAGE_NAME}:${IMAGE_TAG}"
+                            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                            
+                            # 同时打上 latest 标签
+                            docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest
+                            
+                            echo "✓ Docker 镜像构建完成"
+                            docker images | grep ${IMAGE_NAME}
+ENDSSH
+                    """
+                }
+            }
+        }
+
+        /**
+         * 阶段7: 部署容器
+         */
+        stage('7. 部署容器') {
+            steps {
+                echo '🚀 开始部署容器...'
+                script {
+                    def javaOpts = params.JAVA_OPTS_OVERRIDE ?: env.JAVA_OPTS
+                    
+                    sshagent(credentials: [env.SSH_CRED]) {
+                        sh """
+                            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                                ${REMOTE_USER}@${REMOTE_HOST} << 'ENDSSH'
+                                
+                                echo "停止并删除旧容器（如果存在）..."
+                                docker stop ${CONTAINER_NAME} 2>/dev/null || true
+                                docker rm ${CONTAINER_NAME} 2>/dev/null || true
+                                
+                                echo "启动新容器..."
+                                docker run -d \\
+                                    --name ${CONTAINER_NAME} \\
+                                    --restart always \\
+                                    -p ${APP_PORT}:48080 \\
+                                    -e "SPRING_PROFILES_ACTIVE=${SPRING_PROFILE}" \\
+                                    -e "JAVA_OPTS=${javaOpts}" \\
+                                    -e "TZ=Asia/Shanghai" \\
+                                    -v /data/app/logs:/yudao-server/logs \\
+                                    ${IMAGE_NAME}:${IMAGE_TAG}
+                                
+                                echo "容器启动完成"
+                                docker ps | grep ${CONTAINER_NAME}
+ENDSSH
+                        """
+                    }
+                }
+            }
+        }
+
+        /**
+         * 阶段8: 健康检查
+         */
+        stage('8. 健康检查') {
+            steps {
+                echo '🏥 执行健康检查...'
+                sshagent(credentials: [env.SSH_CRED]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                            ${REMOTE_USER}@${REMOTE_HOST} << 'ENDSSH'
+                            
+                            echo "等待应用启动..."
+                            # 优化：减少等待时间（最多等待 3 分钟，每 5 秒检查一次）
+                            MAX_RETRIES=60
+                            RETRY_INTERVAL=5
+                            HEALTH_URL="http://127.0.0.1:${APP_PORT}/actuator/health"
+                            
+                            # 先等待 10 秒，让容器有时间启动
+                            sleep 15
+                            
+                            for i in \$(seq 1 \$MAX_RETRIES); do
+                                echo "健康检查尝试 \$i/\$MAX_RETRIES..."
+                                
+                                # 检查容器是否在运行
+                                if ! docker ps | grep -q ${CONTAINER_NAME}; then
+                                    echo "✗ 容器未运行！"
+                                    echo "容器日志:"
+                                    docker logs ${CONTAINER_NAME} --tail 50
+                                    exit 1
+                                fi
+                                
+                                # 检查健康端点
+                                HTTP_CODE=\$(curl -s -o /dev/null -w "%{http_code}" \$HEALTH_URL 2>/dev/null || echo "000")
+                                
+                                if [ "\$HTTP_CODE" = "200" ]; then
+                                    echo "✓ 健康检查通过！"
+                                    curl -s \$HEALTH_URL
+                                    echo ""
+                                    exit 0
+                                fi
+                                
+                                echo "  HTTP 状态码: \$HTTP_CODE，等待 \$RETRY_INTERVAL 秒..."
+                                sleep \$RETRY_INTERVAL
+                            done
+                            
+                            echo "✗ 健康检查失败！应用启动超时。"
+                            echo "容器日志:"
+                            docker logs ${CONTAINER_NAME} --tail 100
+                            exit 1
+ENDSSH
+                    """
+                }
+            }
+        }
+
+        /**
+         * 阶段9: 清理旧镜像（可选）
+         */
+        stage('9. 清理旧镜像') {
+            when {
+                expression { params.CLEAN_OLD_IMAGES == true }
+            }
+            steps {
+                echo '🧹 清理旧的 Docker 镜像...'
+                sshagent(credentials: [env.SSH_CRED]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+                            ${REMOTE_USER}@${REMOTE_HOST} << 'ENDSSH'
+                            
+                            # 保留最近 5 个版本的镜像
+                            echo "清理旧镜像（保留最近 5 个版本）..."
+                            docker images ${IMAGE_NAME} --format "{{.Tag}}" | \\
+                                grep -v latest | \\
+                                sort -rn | \\
+                                tail -n +6 | \\
+                                xargs -I {} docker rmi ${IMAGE_NAME}:{} 2>/dev/null || true
+                            
+                            # 清理悬空镜像
+                            docker image prune -f 2>/dev/null || true
+                            
+                            echo "✓ 清理完成"
+                            echo "当前镜像列表:"
+                            docker images ${IMAGE_NAME}
+ENDSSH
+                    """
+                }
+            }
+        }
+    }
+
+    // 构建后操作
+    post {
+        success {
+            echo '''
+╔══════════════════════════════════════════════════════════════╗
+║                     ✅ 部署成功！                            ║
+╠══════════════════════════════════════════════════════════════╣
+║  应用地址: http://192.168.30.130:48080                       ║
+║  Swagger:  http://192.168.30.130:48080/swagger-ui/index.html ║
+║  Actuator: http://192.168.30.130:48080/actuator              ║
+╚══════════════════════════════════════════════════════════════╝
+'''
+        }
+
+        failure {
+            echo '''
+╔══════════════════════════════════════════════════════════════╗
+║                     ❌ 部署失败！                            ║
+╠══════════════════════════════════════════════════════════════╣
+║  请检查构建日志排查问题                                      ║
+║  常见问题：                                                  ║
+║  1. Maven 构建失败 - 检查代码编译错误                        ║
+║  2. SSH 连接失败 - 检查凭据和网络                            ║
+║  3. 容器启动失败 - 检查 Docker 日志                          ║
+║  4. 健康检查失败 - 检查数据库/Redis 连接                     ║
+╚══════════════════════════════════════════════════════════════╝
+'''
+        }
+
+        always {
+            // 清理工作空间中的临时文件
+            sh 'rm -rf deploy 2>/dev/null || true'
+            
+            // 归档构建产物（可选）
+            // archiveArtifacts artifacts: 'yudao-server/target/*.jar', fingerprint: true
+        }
+    }
+}

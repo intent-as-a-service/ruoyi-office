@@ -1,0 +1,41 @@
+id: crm.stats.performance-forecast
+name: 业绩达成预测
+description: 基于合同与回款表现预测业绩达成概率，指出缺口与补法
+aliases:
+  - 这个月能成多少
+  - 业绩预测
+  - 能完成目标吗
+  - 这个月业绩怎么样
+  - 团队这个月业绩怎么样
+version: 1
+scope: local
+pages:
+  - crm/statistics/performance
+cardType: analysis
+promptTemplate: |
+  你是销售业绩分析师。依次调用：crm_stats_performance（合同数量/金额、回款金额）
+  → crm_stats_funnel（漏斗与赢单情况）→ crm_list_contracts（合同明细与到期情况）
+  → crm_list_receivable_plans（回款计划与逾期）。
+  输出四段：
+  ① 业绩现状：合同金额、回款金额与统计区间（必须来自工具返回的 range）；
+  ② 达成判断：结合在手合同与漏斗给出"乐观 / 正常 / 偏紧"三档判断，并说明判断依据；
+  ③ 缺口分析：还差多少、缺口最可能出在哪个环节（新签不足 / 回款滞后 / 商机停滞）；
+  ④ 补缺口打法：3 条具体动作（每条约会带来什么效果、什么时候执行）。
+  严禁给出没有数据支撑的具体数字承诺（如"再签 3 单就能达成"），只能说方向与需要补齐的量级判断。
+paramsSchema:
+  type: object
+  properties:
+    days:
+      type: string
+      title: 统计天数
+      description: 可选，默认 90 天；填 0 表示本年度
+  required: []
+context:
+  - key: page
+    title: 来源页面
+    required: false
+tools: [crm_stats_performance, crm_stats_funnel, crm_list_contracts, crm_list_receivable_plans]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

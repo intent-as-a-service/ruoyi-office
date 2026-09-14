@@ -1,0 +1,24 @@
+# =============================================================
+# 内置执行器档案种子：skill 型（确定性流程）
+# 启动时写入 intent_executor 表（已存在则跳过），后台「执行器档案」页可维护
+# =============================================================
+
+id: crm-followup-sop
+type: skill
+name: 客户跟进标准流程
+description: 查客户详情 → 读跟进记录 → 按模板组装标准卡片（纯工具步骤，零 LLM、确定性、可审计）
+
+steps:
+  - name: customer              # 步骤输出经 steps.<name>.text / .details 供后续引用
+    tool: crm_get_customer
+    args:
+      customerId: "${params.customerId}"
+  - name: followups
+    tool: crm_list_follow_ups
+    args:
+      customerId: "${params.customerId}"
+
+output:                         # 缺省 = 标准卡片；模板值为合法 JSON 时按结构化放入
+  title: "客户跟进报告"
+  summary: "${steps.customer.text}"
+  blocks: '[{"kind":"text","title":"最近跟进","text":"${steps.followups.text}"}]'

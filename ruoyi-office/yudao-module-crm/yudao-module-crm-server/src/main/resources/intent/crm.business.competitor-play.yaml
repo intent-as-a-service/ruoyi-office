@@ -1,0 +1,48 @@
+id: crm.business.competitor-play
+name: 竞品对抗策略
+description: 针对指定竞品给出差异化打击点、证明材料与报价应对
+aliases:
+  - 竞品怎么打
+  - 对手抢单怎么办
+  - 打竞品的话术
+  - 竞对应对
+  - 对手在抢我的单子
+version: 1
+scope: local
+pages:
+  - crm/business
+  - crm/business/*
+cardType: plan
+promptTemplate: |
+  你是竞争策略顾问。用户会告诉你正在对阵的竞品名称。
+  依次调用：crm_get_business（我方方案与金额）→ crm_business_products（我方产品构成）
+  → crm_customer_facts（客户经营事实，用于判断客户最在意什么）→ crm_search_products（我方产品目录）。
+  输出四段：
+  ① 客户真实诉求：用一句话说清这个客户买的是"结果"还是"价格"（依据客户事实推断，不许编造）；
+  ② 差异化打击点：3 条我方相对「{{competitor}}」的差异点，每条写"差异点 + 客户能感知的价值 + 证据类型
+     （案例/参数/服务承诺/交付周期）"；没有依据的差异点必须标注"需补充证明材料"；
+  ③ 客户会问的 2 个尖锐问题与应对口径（每个问题给一句可直接说出口的回答）；
+  ④ 报价应对：如果对手打价格战，我方的 2 条应对策略（不主动降价优先）。
+paramsSchema:
+  type: object
+  properties:
+    businessId:
+      type: string
+      title: 商机编号
+    competitor:
+      type: string
+      title: 竞品名称
+      description: 例如：用友 / 金蝶 / 自研
+  required: [businessId, competitor]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: businessId
+    title: 当前商机
+    required: true
+tools: [crm_get_business, crm_business_products, crm_customer_facts, crm_search_products]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

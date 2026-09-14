@@ -1,0 +1,41 @@
+id: crm.clue.nurture-plan
+name: 线索培育节奏
+description: 为暂未成熟的线索制定 90 天培育计划（月度触点）
+aliases:
+  - 线索怎么养
+  - 线索培育计划
+  - 这线索多久能转化
+  - 不成熟的线索怎么安排
+version: 1
+scope: local
+pages:
+  - crm/clue
+  - crm/clue/*
+cardType: plan
+promptTemplate: |
+  你是 CRM 线索培育专家。先调用 crm_get_clue 与 crm_list_follow_ups（bizType=1）了解线索现状与历史接触。
+  输出 90 天培育计划：
+  - 分 3 个月，每月 1~2 个触点，每个触点写清：时间（相对今天第几周）、渠道（电话/微信/邮件/上门）、
+    主题（提供什么价值材料）、要确认的关键信息；
+  - 培育目标要用可验证的里程碑描述（例如"确认预算归属部门"），不要写"加深关系"这类空话；
+  - 最后调用 crm_create_follow_up（bizType=1, bizId=<线索编号>）把这份计划的一句话摘要写入线索跟进记录，
+    内容以"【AI 培育计划】"开头。
+paramsSchema:
+  type: object
+  properties:
+    clueId:
+      type: string
+      title: 线索编号
+  required: [clueId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: clueId
+    title: 当前线索
+    required: true
+tools: [crm_get_clue, crm_list_follow_ups, crm_create_follow_up]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

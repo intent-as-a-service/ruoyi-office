@@ -1,0 +1,23 @@
+# =============================================================
+# 文件名前缀 = 待办分组的展示优先级（越小越靠前；面板默认只并排展示 5 组）
+# CRM 事实规则：商机停滞超 30 天 → 提示 + 一键推进策略
+#
+# 一条规则 = 查询(dataset) + 条件(filter) + 输出模板(badge/items) + 参数映射(params)
+# 事实由 CrmIntentFactProvider 供给（口径与「待办事项」页一致）。
+# 改文案、改阈值、改挂载页面只动本文件即可。
+# =============================================================
+- id: crm.business.stagnant
+  intent: crm.business.advance-strategy
+  dataset: crm.stagnant-businesses
+  scope:
+    page: ["crm/business", "crm/business/*", "crm/backlog", ""]
+  badge:
+    text: "{{count}} 个商机超过 30 天没有进展"
+    level: warning
+  items:
+    limit: 5
+    title: "商机「{{row.name}}」已停滞 {{row.daysSinceUpdate | days}} 天"
+    subtitle: "商机金额 {{row.totalPrice | money}} 元"
+    reason: "商机长期没有推进动作，建议先判断卡点再定推进策略"
+    params:
+      businessId: { from: row.id, type: string }

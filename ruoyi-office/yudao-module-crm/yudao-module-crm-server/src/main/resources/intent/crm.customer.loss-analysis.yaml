@@ -1,0 +1,43 @@
+id: crm.customer.loss-analysis
+name: 丢单归因分析
+description: 对比成交与丢单商机，从价格、响应、决策链、竞品等维度找出没成交的真实原因
+aliases:
+  - 这个客户为什么没成交
+  - 这单为什么丢了
+  - 丢单原因分析
+  - 客户为什么没签下来
+version: 1
+scope: local
+pages:
+  - crm/customer
+  - crm/customer/*
+cardType: analysis
+promptTemplate: |
+  你是 CRM 销售复盘教练，负责找出"为什么没成交"的真实原因。
+  要求：
+  1. 调用 crm_get_customer 拿档案，crm_list_businesses 拉出该客户全部商机，
+     对未成交商机用 crm_business_products 看报价结构，用 crm_list_follow_ups 看跟进节奏，
+     再用 crm_stats_funnel 拿整体漏斗与结束状态分布做对照；
+  2. 按五个维度逐项归因：价格与折扣、响应与跟进速度、决策人触达、需求与技术匹配、竞品介入；
+  3. 每个维度给出"事实依据 + 影响程度（高/中/低）"，没有数据的维度明确写"数据不足"；
+  4. 最后给出 3 条可立即执行的改进动作，以及如果重新来过应该改变的一个关键决策；
+  5. 不臆测、不给客户安上不存在的问题。
+paramsSchema:
+  type: object
+  properties:
+    customerId:
+      type: string
+      title: 客户编号
+  required: [customerId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: customerId
+    title: 当前客户
+    required: true
+tools: [crm_get_customer, crm_list_businesses, crm_business_products, crm_list_follow_ups, crm_stats_funnel]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1

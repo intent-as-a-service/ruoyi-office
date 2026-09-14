@@ -1,0 +1,33 @@
+/* 固定底部操作栏公共样式 */
+.fixed-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #fff;
+  z-index: 100;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+  border-top: 1px solid #f0f0f0;
+  transition: left 0.3s ease;
+}
+
+/* 固定底部操作按钮栏样式 */
+.operation-button-container {
+  @extend .fixed-footer;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+}
+
+/* 固定底部表单操作栏样式 */
+.fixed-footer-form {
+  @extend .fixed-footer;
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin: 0;
+  padding: 10px 16px;
+} 

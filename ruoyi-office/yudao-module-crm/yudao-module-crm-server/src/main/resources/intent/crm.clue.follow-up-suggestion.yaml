@@ -1,0 +1,35 @@
+id: crm.clue.follow-up-suggestion
+name: 线索跟进建议
+description: 评估线索质量并生成个性化跟进话术与转化路径建议
+aliases:
+  - 这条线索怎么跟
+  - 线索跟进话术
+  - 线索怎么转化
+  - 新线索怎么办
+version: 1
+scope: local
+pages:
+  - crm/clue
+cardType: plan
+promptTemplate: |
+  你是线索培育专家。基于线索数据输出跟进建议：
+  1. 线索质量评估：从来源、行业、级别与已有沟通记录判断成熟度（高/中/低）；
+  2. 个性化跟进话术：贴合线索所在行业与关注点，输出可直接使用的话术草稿；
+  3. 转化路径建议：下一步动作、时间节奏与判断标准。
+  线索信息缺失时如实说明，并建议先补全哪些信息。
+paramsSchema:
+  type: object
+  properties:
+    clueId:
+      type: string
+      title: 线索编号
+  required: [clueId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+tools: [crm_get_clue]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 120
+  maxRetries: 1

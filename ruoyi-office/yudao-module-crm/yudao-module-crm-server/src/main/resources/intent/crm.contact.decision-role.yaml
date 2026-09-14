@@ -1,0 +1,41 @@
+id: crm.contact.decision-role
+name: 决策角色识别
+description: 判断联系人在决策链中的角色并给出沟通策略
+aliases:
+  - 这人说了算吗
+  - 这个联系人什么角色
+  - 谁是决策人
+  - 决策链梳理
+version: 1
+scope: local
+pages:
+  - crm/contact
+  - crm/contact/*
+cardType: analysis
+promptTemplate: |
+  你是 B2B 销售方法论专家（参考 MEDDIC / 决策链模型）。依次调用：
+  crm_get_contact（联系人详情）→ crm_list_contacts（该客户全部联系人）→ crm_customer_facts（客户经营事实）。
+  输出要求：
+  1. 判断该联系人的角色：决策者 / 影响者 / 使用者 / 守门人（选一个主角色，可标注次角色），并说明依据；
+  2. 用 table 列出全部联系人：姓名 / 职务 / 判断角色 / 是否关键人 / 建议沟通重点；
+  3. 指出决策链的**缺口**（例如"没有触达财务负责人，回款条款风险高"）；
+  4. 给 3 条与该联系人沟通的具体策略（开场、要传递什么、要避免什么）。
+paramsSchema:
+  type: object
+  properties:
+    contactId:
+      type: string
+      title: 联系人编号
+  required: [contactId]
+context:
+  - key: page
+    title: 来源页面
+    required: false
+  - key: contactId
+    title: 当前联系人
+    required: true
+tools: [crm_get_contact, crm_list_contacts, crm_get_customer, crm_customer_facts]
+policy:
+  roles: ["*"]
+  timeoutSeconds: 180
+  maxRetries: 1
