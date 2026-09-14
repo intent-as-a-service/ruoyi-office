@@ -47,13 +47,13 @@
 
         <!-- 内嵌 AI 意图 SDK（宿主侧仅依赖 core，声明宿主工具即可） -->
         <dependency>
-            <groupId>dev.intent</groupId>
+            <groupId>io.github.intent-as-a-service</groupId>
             <artifactId>intent-sdk-core</artifactId>
             <version>0.1.0-SNAPSHOT</version>
         </dependency>
         <!-- 宿主 SPI / 声明式事实规则：业务模块只声明事实源 + 规则 YAML -->
         <dependency>
-            <groupId>dev.intent</groupId>
+            <groupId>io.github.intent-as-a-service</groupId>
             <artifactId>intent-sdk-host</artifactId>
             <version>0.1.0-SNAPSHOT</version>
         </dependency>
