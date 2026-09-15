@@ -57,7 +57,9 @@ This repository is one of three:
 
 ### SQL
 
-- `ruoyi-office/sql/mysql/add_intent_executor.sql` — the intent executor profile table and seed rows.
+- `ruoyi-office/sql/mysql/intent.sql` — **the four intent tables plus the 意图中心 menus and their
+  super-admin grants** (idempotent). The older incremental script `add_intent_executor.sql` is kept for
+  history and is already covered by it.
 
 ---
 
@@ -78,9 +80,19 @@ cd intent-sdk && mvn install -DskipTests
 
 ```bash
 mysql -uroot -p -e "CREATE DATABASE \`ruoyi-office\` DEFAULT CHARACTER SET utf8mb4"
-mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/ruoyi-vue-pro.sql
-mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/add_intent_executor.sql
+mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/ruoyi-vue-pro.sql   # ① upstream yudao schema
+mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/quartz.sql          # ② optional: scheduled jobs
+mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/intent.sql          # ③ required: intent tables + menus
 ```
+
+> **`intent.sql` is required for the intent features.** It creates the four intent tables
+> (`intent_spec` / `intent_config` / `intent_rule` / `intent_executor`) plus the 意图中心 back-office
+> menus and their super-admin grants. It is idempotent and supersedes the older incremental script
+> `add_intent_executor.sql`.
+>
+> The intent *content* is deliberately not in SQL: the 40 intent specs, the declarative fact rules and
+> the executor profiles ship as YAML under `yudao-module-intent` / `yudao-module-crm` and are **seeded
+> into the database at startup**.
 
 **3. Build and run the backend.**
 
@@ -158,7 +170,8 @@ cd ruoyi-office-vben && pnpm install && pnpm dev:antd
   回款 / 产品 / 统计 / 团队）、**7 份声明式事实规则**，以及配套的 Configuration / FactProvider /
   状态监听器。
 - **前端**：悬浮球与意图页面（`apps/web-antd`）。
-- **建表**：`sql/mysql/add_intent_executor.sql`。
+- **建表**：`sql/mysql/intent.sql`（四张意图表 + 意图中心菜单与超管授权，幂等可重复执行；
+  历史增量脚本 `add_intent_executor.sql` 已被它覆盖）。
 
 ### 为什么必须有"上下文桥"
 
@@ -173,10 +186,11 @@ cd ruoyi-office-vben && pnpm install && pnpm dev:antd
 git clone git@github.com:intent-as-a-service/intent-sdk.git
 cd intent-sdk && mvn install -DskipTests
 
-# 2) 建库导表
+# 2) 建库导表（②③ 可选/必需见下：intent.sql 是意图功能的必需项）
 mysql -uroot -p -e "CREATE DATABASE \`ruoyi-office\` DEFAULT CHARACTER SET utf8mb4"
-mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/ruoyi-vue-pro.sql
-mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/add_intent_executor.sql
+mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/ruoyi-vue-pro.sql   # ① 基础表（上游 yudao）
+mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/quartz.sql          # ② 定时任务表（可选）
+mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/intent.sql          # ③ 意图表 + 菜单（必需）
 
 # 3) 构建并启动后端。**必须带 -Pboot**：
 #    默认激活的是 cloud（微服务）profile，skip.repackage=false 会把每个模块都单独打成可执行包，
