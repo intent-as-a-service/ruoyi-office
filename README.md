@@ -82,13 +82,21 @@ mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/ruoyi-vue-pro.sql
 mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/add_intent_executor.sql
 ```
 
-**3. Build and run the backend** (defaults to port `48080`, database `ruoyi-office` on
-`127.0.0.1:33061` — adjust `ruoyi-office/yudao-server/src/main/resources/application-local.yaml`
-to match your environment):
+**3. Build and run the backend.**
+
+> ⚠️ **Build with `-Pboot`.** The `cloud` profile is active *by default* and sets
+> `skip.repackage=false`, which repackages **every module** into its own executable jar; `yudao-server`
+> then bundles those nested jars and the application fails at startup with
+> `No qualifying bean of type '...PermissionCommonApi'` (measured: a 1.1 GB `yudao-server.jar`
+> instead of ~190 MB). `-Pboot` sets `skip.repackage=true` so modules stay plain jars and
+> `yudao-server` does the single packaging step.
+
+Defaults: port `48080`, database `ruoyi-office` on `127.0.0.1:33061`. Adjust
+`ruoyi-office/yudao-server/src/main/resources/application-local.yaml` to match your environment.
 
 ```bash
-cd ruoyi-office && mvn -DskipTests install
-cd yudao-server && mvn spring-boot:run
+cd ruoyi-office && mvn -Pboot -DskipTests install
+java -jar yudao-server/target/yudao-server.jar        # monolith on port 48080
 ```
 
 **4. Run the front end** (the Ant Design app):
@@ -170,9 +178,14 @@ mysql -uroot -p -e "CREATE DATABASE \`ruoyi-office\` DEFAULT CHARACTER SET utf8m
 mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/ruoyi-vue-pro.sql
 mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/add_intent_executor.sql
 
-# 3) 启动后端（默认端口 48080，库 ruoyi-office@127.0.0.1:33061）
-cd ruoyi-office && mvn -DskipTests install
-cd yudao-server && mvn spring-boot:run
+# 3) 构建并启动后端。**必须带 -Pboot**：
+#    默认激活的是 cloud（微服务）profile，skip.repackage=false 会把每个模块都单独打成可执行包，
+#    yudao-server 再把这些嵌套 jar 收进来，启动就会报
+#    No qualifying bean of type '...PermissionCommonApi'（实测 jar 会从 ~190MB 涨到 1.1GB）。
+#    -Pboot 让模块保持普通 jar，由 yudao-server 统一打包。
+#    默认端口 48080，库 ruoyi-office@127.0.0.1:33061
+cd ruoyi-office && mvn -Pboot -DskipTests install
+java -jar yudao-server/target/yudao-server.jar
 
 # 4) 启动前端（Ant Design 版）
 cd ruoyi-office-vben && pnpm install && pnpm dev:antd
