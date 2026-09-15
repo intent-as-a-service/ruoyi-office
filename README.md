@@ -1,25 +1,37 @@
 **English** · [中文](#chinese)
 
 <a name="english"></a>
-# ruoyi-office · Intent as a Service reference host
+# ruoyi-office × Intent as a Service
 
-A [yudao](https://github.com/YunaiV/ruoyi-vue-pro)-based office suite backend and its
-[Vben](https://github.com/vbenjs/vue-vben-admin) front end in a single repository, with
-**Intent as a Service** embedded as a working reference implementation — including a full CRM intent
-chain (40 intents).
+### 40 CRM intents, 7 declarative fact rules, one SQL import — the fastest way to feel what "no chat box" actually means
 
-> **Intent as a Service removes the chat box.** A business page shows a row of *intent buttons*; one
-> click runs the intent and a structured result card renders in place. The AI runs **in-process
-> inside the application**, so permissions, transactions and data scope stay exactly as the host
-> defines them — no separate account system, no cross-domain calls, no data leaving your boundary.
+[![License](https://img.shields.io/badge/license-MIT%20%2B%20Apache--2.0-blue.svg)](#notes)
+![JDK](https://img.shields.io/badge/JDK-21-orange.svg)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-brightgreen.svg)
+![Intents](https://img.shields.io/badge/CRM%20intents-40-blueviolet.svg)
+![Fact rules](https://img.shields.io/badge/declarative%20fact%20rules-7-informational.svg)
 
-This repository is one of three:
+**A complete, runnable reference host.** A [yudao](https://github.com/YunaiV/ruoyi-vue-pro)-based
+office suite backend and its [Vben](https://github.com/vbenjs/vue-vben-admin) front end in a single
+repository, with **Intent as a Service** embedded end to end: **40 intents** covering the whole CRM
+flow (customers, contacts, clues, business opportunities, contracts, receivables, products,
+statistics, team management), **7 declarative fact rules**, a flow-orchestrated, zero-LLM executor
+profile (`sales-analyst-flow`), and a debug console you can click through minutes after start-up.
+
+> **No chat box, no second account system, no cross-domain calls.** The page declares what can be
+> asked; the model runs **in-process inside the application**; tools call host services directly, so
+> login state, permission checks and data-scope filtering follow the call stack.
+
+![Intent debug console — a real CRM intent's result card](./docs/assets/intent-as-a-service/01-意图调试台-流程执行结果.png)
+
+### The four repositories
 
 | Repository | What it is |
 |---|---|
 | [intent-sdk](https://github.com/intent-as-a-service/intent-sdk) | The framework: protocol, execution engine, host SPI, Spring Boot starter |
 | [intent-ui-sdk](https://github.com/intent-as-a-service/intent-ui-sdk) | The framework-agnostic front end: floating button, drawer, result cards, trace |
 | [RuoYi-Vue-Plus](https://github.com/intent-as-a-service/RuoYi-Vue-Plus) | The other reference host (RuoYi-Vue-Plus + plus-ui, 14 system/monitor intents) |
+| **this repository** | Reference host on yudao + Vben — 40 intents, the full CRM chain |
 
 ---
 
@@ -146,6 +158,20 @@ cd ruoyi-office-vben && pnpm install && pnpm dev:antd
 | `/intent-ui/index.html` on the backend | The intent debug console — try the catalog, slot form, execution and trace without writing code |
 | CRM pages, bottom right | The draggable AI button, with todos derived from real CRM data |
 
+### What the run leaves behind
+
+Every execution is traceable, and every intent is configurable **without a release**:
+
+![Execution trace — steps, tool calls and per-intent telemetry](./docs/assets/intent-as-a-service/02-执行过程-步骤留痕.png)
+
+![Executor profiles — model, tool set and step orchestration](./docs/assets/intent-as-a-service/03-执行器档案-能力组合与流程编排.png)
+
+![Intent management — executor binding, publish switch and visible roles](./docs/assets/intent-as-a-service/04-意图管理-执行器引用.png)
+
+*From the running application: the step-by-step trace with tool arguments, the executor profile that
+binds a model + tool set + flow steps, and the intent list where publishing, executor binding and
+visible roles are changed live.*
+
 ## Documentation
 
 - The intent platform's own design documents live in the
@@ -167,14 +193,35 @@ cd ruoyi-office-vben && pnpm install && pnpm dev:antd
 <a name="chinese"></a>
 # ruoyi-office × 意图即服务
 
+### 40 个 CRM 意图、7 份声明式事实规则、一次 SQL 导入 —— 想感受"去聊天框"到底什么样，这个仓最快
+
 [English](#english) · **中文**
 
-本仓把基于 [yudao](https://github.com/YunaiV/ruoyi-vue-pro) 的办公套件后端与
-[Vben](https://github.com/vbenjs/vue-vben-admin) 前端放在一个仓库里，并在其上植入了
-**意图即服务**的完整参考实现 —— 含一条完整的 CRM 意图链（40 个意图）。
+![License](https://img.shields.io/badge/%E8%AE%B8%E5%8F%AF%E8%AF%81-MIT%20%2B%20Apache--2.0-blue.svg)
+![JDK](https://img.shields.io/badge/JDK-21-orange.svg)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5-brightgreen.svg)
+![意图](https://img.shields.io/badge/CRM%20%E6%84%8F%E5%9B%BE-40-blueviolet.svg)
+![事实规则](https://img.shields.io/badge/%E5%A3%B0%E6%98%8E%E5%BC%8F%E4%BA%8B%E5%AE%9E%E8%A7%84%E5%88%99-7-informational.svg)
 
-> **意图即服务去掉聊天框**：业务页面放一排意图按钮，点击即执行，结果卡片就地渲染。
-> AI 能力以**原生 SDK 进程内嵌入**应用，权限、事务、数据范围完全沿用宿主。
+**一套开箱即跑的完整参考实现。** 本仓把基于 [yudao](https://github.com/YunaiV/ruoyi-vue-pro) 的办公套件后端与
+[Vben](https://github.com/vbenjs/vue-vben-admin) 前端放在一个仓库里，并把**意图即服务**端到端植入：
+**40 个意图**覆盖整条 CRM 流程（客户 / 联系人 / 线索 / 商机 / 合同 / 回款 / 产品 / 统计 / 团队），
+外加 **7 份声明式事实规则**、一个流程编排的零 LLM 执行器档案（`sales-analyst-flow`），
+以及一个启动后几分钟就能点起来的意图调试台。
+
+> **没有聊天框、没有第二套账号体系、不跨域。** 页面声明"能问什么"，模型**进程内**运行在应用里，
+> 工具直调宿主 Service —— 登录态、权限校验、数据权限过滤全程随调用栈走。
+
+![意图调试台 —— 一个真实 CRM 意图跑出来的结果卡片](./docs/assets/intent-as-a-service/01-意图调试台-流程执行结果.png)
+
+### 四个仓库
+
+| 仓库 | 说明 |
+|---|---|
+| [intent-sdk](https://github.com/intent-as-a-service/intent-sdk) | 框架本体：协议、执行引擎、宿主 SPI、Spring Boot Starter |
+| [intent-ui-sdk](https://github.com/intent-as-a-service/intent-ui-sdk) | 框架无关的前端：悬浮球、抽屉、结果卡片、执行轨迹 |
+| [RuoYi-Vue-Plus](https://github.com/intent-as-a-service/RuoYi-Vue-Plus) | 另一个参考宿主（RuoYi-Vue-Plus + plus-ui，14 个系统 / 监控意图） |
+| **本仓** | yudao + Vben 参考宿主 —— 40 个意图，CRM 全链路 |
 
 ### 目录结构
 
