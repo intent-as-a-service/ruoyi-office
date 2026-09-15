@@ -80,15 +80,21 @@ cd intent-sdk && mvn install -DskipTests
 
 ```bash
 mysql -uroot -p -e "CREATE DATABASE \`ruoyi-office\` DEFAULT CHARACTER SET utf8mb4"
-mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/ruoyi-vue-pro.sql   # ① upstream yudao schema
+mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/ruoyi-vue-pro.sql   # ① upstream yudao base schema
 mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/quartz.sql          # ② optional: scheduled jobs
 mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/intent.sql          # ③ required: intent tables + menus
+mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/business-modules.sql # ④ required: business module tables
 ```
 
-> **`intent.sql` is required for the intent features.** It creates the four intent tables
-> (`intent_spec` / `intent_config` / `intent_rule` / `intent_executor`) plus the 意图中心 back-office
-> menus and their super-admin grants. It is idempotent and supersedes the older incremental script
-> `add_intent_executor.sql`.
+> **Both ③ and ④ are required.** The upstream base schema (`ruoyi-vue-pro.sql`) only covers the system
+> and infra tables — 63 tables in total. It does **not** contain the intent tables, nor the business
+> module tables (CRM / ERP / HRM / OA / IoT / AI / MP / BPM / assets / WMS …) that this fork carries.
+> Without ③ the intent platform has no tables to seed into; without ④ the application still starts and
+> registers all 40 intents, but every business intent fails at execution time with a missing table.
+>
+> `intent.sql` and `business-modules.sql` are **structure only** (no data) and idempotent, so both can
+> be re-run safely. Verified end to end: a database created from these four scripts starts the app and
+> executes `crm.backlog.today-priority` successfully.
 >
 > The intent *content* is deliberately not in SQL: the 40 intent specs, the declarative fact rules and
 > the executor profiles ship as YAML under `yudao-module-intent` / `yudao-module-crm` and are **seeded
@@ -186,11 +192,12 @@ cd ruoyi-office-vben && pnpm install && pnpm dev:antd
 git clone git@github.com:intent-as-a-service/intent-sdk.git
 cd intent-sdk && mvn install -DskipTests
 
-# 2) 建库导表（②③ 可选/必需见下：intent.sql 是意图功能的必需项）
+# 2) 建库导表（③④ 都是必需项）
 mysql -uroot -p -e "CREATE DATABASE \`ruoyi-office\` DEFAULT CHARACTER SET utf8mb4"
-mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/ruoyi-vue-pro.sql   # ① 基础表（上游 yudao）
-mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/quartz.sql          # ② 定时任务表（可选）
-mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/intent.sql          # ③ 意图表 + 菜单（必需）
+mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/ruoyi-vue-pro.sql    # ① 基础表（上游 yudao，仅 system/infra）
+mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/quartz.sql           # ② 定时任务表（可选）
+mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/intent.sql           # ③ 意图四张表 + 后台菜单（必需）
+mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/business-modules.sql # ④ 业务模块表（必需）
 
 # 3) 构建并启动后端。**必须带 -Pboot**：
 #    默认激活的是 cloud（微服务）profile，skip.repackage=false 会把每个模块都单独打成可执行包，
