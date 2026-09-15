@@ -76,7 +76,23 @@ git clone git@github.com:intent-as-a-service/intent-sdk.git
 cd intent-sdk && mvn install -DskipTests
 ```
 
-**2. Create the database and import the schema:**
+**2. Create the database and load data — pick one of the two paths.**
+
+**Path A — complete demo dataset (recommended for a first run).** A single file with the whole
+schema *and* business data, so the intents have something real to work on (18 customers, 28 contracts,
+23 opportunities, 17 receivable plans, 20 clues, 25 users):
+
+```bash
+mysql -uroot -p -e "CREATE DATABASE \`ruoyi-office\` DEFAULT CHARACTER SET utf8mb4"
+mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/demo-data.sql
+```
+
+> Credentials inside this dataset (`ai_api_key`, cloud-storage configs) have been replaced with
+> placeholders such as `sk-DEMO-KEY-PLACEHOLDER`, so the repository carries no usable keys. Put your
+> own back in those tables, or keep using environment variables (`DEEPSEEK_API_KEY` for the intents).
+> The business data is simulated, not real customer data.
+
+**Path B — empty database.** If you would rather start with no data:
 
 ```bash
 mysql -uroot -p -e "CREATE DATABASE \`ruoyi-office\` DEFAULT CHARACTER SET utf8mb4"
@@ -86,15 +102,14 @@ mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/intent.sql          # ③ 
 mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/business-modules.sql # ④ required: business module tables
 ```
 
-> **Both ③ and ④ are required.** The upstream base schema (`ruoyi-vue-pro.sql`) only covers the system
-> and infra tables — 63 tables in total. It does **not** contain the intent tables, nor the business
-> module tables (CRM / ERP / HRM / OA / IoT / AI / MP / BPM / assets / WMS …) that this fork carries.
-> Without ③ the intent platform has no tables to seed into; without ④ the application still starts and
-> registers all 40 intents, but every business intent fails at execution time with a missing table.
+> **In path B, ③ and ④ are required.** The upstream base schema (`ruoyi-vue-pro.sql`) only covers the
+> system and infra tables — 63 tables in total. It does **not** contain the intent tables, nor the
+> business module tables (CRM / ERP / HRM / OA / IoT / AI / MP / BPM / assets / WMS …) that this fork
+> carries. Without ③ the intent platform has no tables to seed into; without ④ the application still
+> starts and registers all 40 intents, but every business intent fails at execution time with a
+> missing table.
 >
-> `intent.sql` and `business-modules.sql` are **structure only** (no data) and idempotent, so both can
-> be re-run safely. Verified end to end: a database created from these four scripts starts the app and
-> executes `crm.backlog.today-priority` successfully.
+> All four scripts are **structure only** and idempotent, so they can be re-run safely.
 >
 > The intent *content* is deliberately not in SQL: the 40 intent specs, the declarative fact rules and
 > the executor profiles ship as YAML under `yudao-module-intent` / `yudao-module-crm` and are **seeded
@@ -192,12 +207,17 @@ cd ruoyi-office-vben && pnpm install && pnpm dev:antd
 git clone git@github.com:intent-as-a-service/intent-sdk.git
 cd intent-sdk && mvn install -DskipTests
 
-# 2) 建库导表（③④ 都是必需项）
+# 2) 建库导数据。两条路选一条：
+#    A. 完整演示库（推荐首次运行）：一份文件含全部表结构与业务数据，
+#       意图一跑就有真实业务可看（18 客户 / 28 合同 / 23 商机 / 17 回款计划 / 20 线索 / 25 用户）
 mysql -uroot -p -e "CREATE DATABASE \`ruoyi-office\` DEFAULT CHARACTER SET utf8mb4"
-mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/ruoyi-vue-pro.sql    # ① 基础表（上游 yudao，仅 system/infra）
-mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/quartz.sql           # ② 定时任务表（可选）
-mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/intent.sql           # ③ 意图四张表 + 后台菜单（必需）
-mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/business-modules.sql # ④ 业务模块表（必需）
+mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/demo-data.sql
+#
+#    B. 空库自建（③④ 都是必需项，上游基础脚本只覆盖 system/infra 共 63 张表）：
+# mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/ruoyi-vue-pro.sql    # ① 基础表（上游 yudao）
+# mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/quartz.sql           # ② 定时任务表（可选）
+# mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/intent.sql           # ③ 意图四张表 + 后台菜单
+# mysql -uroot -p ruoyi-office < ruoyi-office/sql/mysql/business-modules.sql # ④ 业务模块表
 
 # 3) 构建并启动后端。**必须带 -Pboot**：
 #    默认激活的是 cloud（微服务）profile，skip.repackage=false 会把每个模块都单独打成可执行包，
