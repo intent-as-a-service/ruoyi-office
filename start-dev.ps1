@@ -112,6 +112,6 @@ Write-Host '  后台管理    http://127.0.0.1:5666/                admin / admi
 Write-Host '  意图工作台  http://127.0.0.1:48080/intent-ui/      admin / admin123'
 Write-Host '  预览页      http://127.0.0.1:48080/intent-ui/preview.html   （免登录，假数据）'
 Write-Host ''
-Write-Host '数据库        MySQL 3306 / ruoyi-office    root / ******'
+Write-Host "数据库        MySQL 3306 / ruoyi-office    root / $(if ($env:MYSQL_PASSWORD) { $env:MYSQL_PASSWORD } else { '（未设 MYSQL_PASSWORD，用缺省 123456）' })"
 Write-Host ''
 Write-Host '注意：agent 型意图需要 DEEPSEEK_API_KEY，未配置时这类意图会报 LLM_ERROR。' -ForegroundColor Yellow
