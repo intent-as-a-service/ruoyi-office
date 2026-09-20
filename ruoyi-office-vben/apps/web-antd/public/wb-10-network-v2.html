@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>意图工作台 · 意图网络 v2（按建议完善的评审稿）</title>
+<style>
+/* ============================================================================
+   v2 相对 v1 的改动（对应《意图网络逻辑方案》§1.3 / §3 / §7 的 5 条建议）
+   ----------------------------------------------------------------------------
+   ① 边权从「×9」改成「M / N」= 建议次数 / 父节点跑过次数，N<3 标"样本少"
+   ② 焦点环 + 上下游 1 跳高亮；**切换焦点不重排布局**
+   ③ 左栏每一行加 `→N` 角标（网络价值回流到用户真正在读的那一列）
+   ④ 不做"按对象过滤"（13/17 条运行没有 params，做了会删掉图的主体）
+   ⑤ 右侧详情是**抽屉浮层**，关掉时中间 100% 是网络
+
+   并且修正了 v1 的一处**语义错误**：
+   v1 把边画成「走过的路」，实测**不是**——17 条运行里只有 1 个被建议过的意图后来真的跑过。
+   所以现在是两层边：
+     · 实线 = 前瞻：焦点意图**最近一次运行**给出的下一步（能行动）
+     · 虚线 = 历史：累计"被建议过"的次数（只是背景，不代表发生过）
+   ============================================================================ */
+:root{
+  --navy:#1B2A44; --blue:#3B82F6; --blue-d:#2563EB; --blue-50:#EFF6FF; --blue-100:#DBEAFE;
+  --bg:#F2F4F7; --card:#fff; --line:#E6E9F0; --line-2:#F0F2F6;
+  --t1:#1F2733; --t2:#667085; --t3:#98A2B3;
+  --green:#16A34A; --green-50:#ECFDF3; --amber:#F59E0B; --amber-50:#FFFBEB;
+  --red:#EF4444; --red-50:#FEF2F2; --purple:#7C3AED; --purple-50:#F5F3FF;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; }
+body{ background:#E9ECF2; color:var(--t1); font-size:13px; line-height:1.55;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  padding:26px 0 70px; }
+.wrap{ width:1440px; margin:0 auto; }
+.doc-head{ display:flex; align-items:baseline; gap:14px; padding:0 4px 14px; }
+.doc-head h1{ margin:0; font-size:19px; font-weight:700; }
+.doc-head .sub{ font-size:12px; color:var(--t2); }
+.doc-head .tag{ margin-left:auto; font-size:11.5px; color:var(--t2); background:#fff;
+  border:1px solid var(--line); border-radius:20px; padding:3px 12px; }
+.sect{ margin-bottom:22px; }
+.sect-hd{ display:flex; align-items:baseline; gap:10px; margin:0 4px 10px; }
+.sect-hd h2{ margin:0; font-size:15px; font-weight:700; }
+.sect-hd .note{ font-size:12px; color:var(--t2); }
+.card{ background:var(--card); border-radius:12px;
+  box-shadow:0 1px 3px rgba(16,24,40,.06), 0 0 0 1px rgba(16,24,40,.04); }
+.tips{ display:flex; gap:8px; flex-wrap:wrap; padding:0 4px 12px; }
+.tip{ font-size:11.5px; background:#fff; border:1px solid var(--line); border-radius:20px;
+  padding:4px 12px; color:var(--t2); }
+.tip b{ color:var(--t1); }
+
+/* ---------------- 舞台 ---------------- */
+.stage{ position:relative; width:1440px; height:900px; background:var(--card); border-radius:12px;
+  overflow:hidden; box-shadow:0 18px 48px -18px rgba(16,24,40,.28), 0 0 0 1px rgba(16,24,40,.05); }
+.topbar{ height:52px; display:flex; align-items:center; gap:20px; padding:0 18px;
+  border-bottom:1px solid var(--line); }
+.brand{ display:flex; align-items:center; gap:9px; font-weight:700; color:var(--navy); }
+.logo{ width:26px; height:26px; border-radius:7px; background:var(--navy); color:#fff; font-size:11px;
+  display:flex; align-items:center; justify-content:center; font-weight:700; }
+.cmdk{ display:flex; align-items:center; gap:10px; width:300px; height:30px; padding:0 11px;
+  border:1px solid var(--line); border-radius:7px; color:var(--t3); font-size:12px; background:#FAFBFC; }
+.cmdk .kbd{ margin-left:auto; font-size:10.5px; border:1px solid var(--line); border-radius:4px;
+  padding:1px 5px; background:#fff; }
+.top-right{ margin-left:auto; display:flex; align-items:center; gap:12px; font-size:12.5px; color:var(--t2); }
+.avatar{ width:28px; height:28px; border-radius:50%; background:var(--blue-50); color:var(--blue-d);
+  display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; }
+.ctxbar{ height:40px; display:flex; align-items:center; gap:10px; padding:0 18px;
+  border-bottom:1px solid var(--line); background:#FCFCFD; font-size:12px; color:var(--t2); }
+.cchip{ display:inline-flex; align-items:center; gap:5px; border:1px solid var(--line); border-radius:14px;
+  padding:2px 10px; background:#fff; font-size:11.5px; color:var(--t1); }
+.body{ display:flex; height:808px; }
+
+/* ---------------- 左栏 ---------------- */
+.left{ width:320px; flex:0 0 320px; border-right:1px solid var(--line); background:#fff;
+  display:flex; flex-direction:column; min-height:0; }
+.focus{ padding:9px 14px; border-bottom:1px solid var(--line-2); display:flex; align-items:center; }
+.focus .fname{ font-size:12.5px; font-weight:600; }
+.focus .fmeta{ font-size:10.5px; color:var(--t3); }
+.switch{ margin-left:auto; font-size:11px; color:var(--blue-d); border:1px solid var(--blue-100);
+  border-radius:6px; padding:2px 8px; }
+.hero{ margin:9px 11px 0; border-radius:10px; padding:10px 11px; border:1px solid var(--red-50);
+  box-shadow:0 1px 2px rgba(239,68,68,.08); }
+.hero .hline{ font-size:11.5px; color:var(--t2); }
+.hero .subj{ font-weight:700; color:var(--t1); }
+.hero .hact{ font-size:15px; font-weight:700; margin-top:2px; }
+.hero .hwhy{ font-size:11px; color:var(--t2); }
+.hero .hbtns{ display:flex; gap:6px; margin-top:8px; align-items:center; }
+.btn{ border-radius:7px; font-size:11.5px; padding:4px 12px; border:1px solid var(--line); background:#fff;
+  cursor:pointer; }
+.btn.pri{ background:var(--blue-d); border-color:var(--blue-d); color:#fff; font-weight:600; padding:4px 16px; }
+.btn.ghost{ color:var(--t2); }
+.adopt{ margin-left:auto; font-size:10px; color:var(--t3); border:1px dashed var(--line);
+  border-radius:6px; padding:1px 7px; }
+.navtiles{ display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:9px 11px;
+  border-bottom:1px solid var(--line-2); }
+.ntile{ border-radius:9px; padding:8px 6px 7px; text-align:center; background:#FCFCFD;
+  border:1px solid var(--line); }
+.ntile.on{ background:var(--tonebg); border-color:var(--tone); }
+.ntile.off .ntic{ background:#F1F5F9; color:var(--t3); }
+.ntic{ width:26px; height:26px; margin:0 auto 5px; border-radius:8px; background:var(--tonebg);
+  color:var(--tone); display:flex; align-items:center; justify-content:center; font-size:13px; }
+.ntt{ font-size:11.5px; font-weight:600; }
+.ntn{ font-size:10px; font-family:var(--mono); color:var(--tone); }
+.tone-blue{ --tone:#2563EB; --tonebg:#EFF6FF; }
+.tone-purple{ --tone:#7C3AED; --tonebg:#F5F3FF; }
+.tone-slate{ --tone:#64748B; --tonebg:#F1F5F9; }
+
+/* ★ 队列行 + 下游角标（建议 ③） */
+.qwrap{ flex:1; overflow:hidden; padding:9px 11px; }
+.qhd{ display:flex; align-items:center; gap:7px; margin-bottom:7px; }
+.qhd .qt{ font-size:12px; font-weight:700; }
+.qhd .qn{ font-size:10.5px; color:var(--t2); }
+.qhd .qm{ margin-left:auto; font-size:10.5px; color:var(--blue-d); }
+.qrow{ display:flex; align-items:flex-start; gap:8px; padding:7px 8px; border-radius:8px;
+  margin-bottom:5px; background:#FCFCFD; border-left:3px solid var(--line); cursor:pointer;
+  transition:background .12s, border-color .12s; }
+.qrow:hover{ background:#F5F8FF; }
+.qrow.sel{ background:#F0F6FF; border-left-color:var(--blue-d); }
+.qrow.d{ border-left-color:var(--red); }
+.qrow.w{ border-left-color:var(--amber); }
+.qrow.sel.d{ border-left-color:var(--red); }
+.qmain{ flex:1; min-width:0; }
+.qobj{ font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.qmeta{ font-size:10.5px; color:var(--t3); display:flex; gap:6px; align-items:center; margin-top:1px; }
+.qmoney{ font-family:var(--mono); font-size:11.5px; font-weight:700; color:var(--t1); }
+.qtags{ display:flex; gap:4px; }
+.tchip{ font-size:9.5px; background:#F1F5F9; color:var(--t2); border-radius:4px; padding:0 5px; }
+/* 角标：这条意图在网络里有几个观测到的下游 */
+.badge{ margin-left:auto; flex:0 0 auto; font-family:var(--mono); font-size:10px; font-weight:700;
+  color:var(--blue-d); background:var(--blue-50); border:1px solid var(--blue-100);
+  border-radius:9px; padding:0 6px; cursor:pointer; }
+.badge:hover{ background:var(--blue-d); color:#fff; border-color:var(--blue-d); }
+.badge.zero{ color:var(--t3); background:#F4F6F9; border-color:var(--line); font-weight:400; }
+.legendline{ font-size:10px; color:var(--t3); line-height:1.6; border-top:1px solid var(--line-2);
+  padding:8px 2px 0; margin-top:4px; }
+
+/* ---------------- 中间：网络 ---------------- */
+.graph{ flex:1; min-width:0; position:relative; background:#FBFCFE; overflow:hidden; }
+.ghead{ position:absolute; left:0; right:0; top:0; height:46px; display:flex; align-items:center;
+  gap:12px; padding:0 18px; border-bottom:1px solid var(--line-2); background:#fff; z-index:4; }
+.ghead .gt{ font-size:13.5px; font-weight:700; }
+.ghead .gs{ font-size:11px; color:var(--t3); }
+.ghead .gbtn{ margin-left:auto; display:flex; gap:7px; align-items:center; }
+.gbtn .b{ font-size:11.5px; border:1px solid var(--line); border-radius:7px; padding:3px 11px;
+  background:#fff; color:var(--t2); cursor:pointer; }
+.gbtn .b.on{ background:var(--blue-d); border-color:var(--blue-d); color:#fff; font-weight:600; }
+.gcanvas{ position:absolute; left:0; top:46px; right:0; bottom:0; overflow:auto; }
+.gcanvas::-webkit-scrollbar{ width:9px; height:9px; }
+.gcanvas::-webkit-scrollbar-thumb{ background:#DDE1E8; border-radius:5px; }
+.ginner{ position:relative; width:1160px; height:742px; }
+.gcol{ position:absolute; top:2px; font-size:10.5px; color:var(--t3); font-weight:600; letter-spacing:.3px; }
+.gcol .cnum{ font-family:var(--mono); font-weight:400; }
+svg.wires{ position:absolute; left:0; top:0; overflow:visible; pointer-events:none; }
+/* 两层边：历史=虚线灰（背景）；前瞻=实线蓝（能行动） */
+svg.wires path.e{ fill:none; }
+svg.wires path.e.hist{ stroke:#D5DBE3; stroke-width:1.2; stroke-dasharray:3 4; }
+svg.wires path.e.live{ stroke:var(--blue-d); stroke-width:2; }
+svg.wires path.e.dim{ stroke:#EAEEF3; stroke-width:1; stroke-dasharray:2 5; }
+svg.wires path.e.run{ stroke:var(--blue); stroke-width:2.4; stroke-dasharray:8 6;
+  animation:flow .9s linear infinite; }
+@keyframes flow{ to{ stroke-dashoffset:-28; } }
+svg.wires text{ font-size:9px; font-family:var(--mono); fill:var(--t3); }
+svg.wires text.live{ fill:var(--blue-d); font-weight:700; font-size:10px; }
+svg.wires text.dim{ fill:#C3CBD6; }
+svg.wires text.warn{ fill:#B45309; }
+
+.node{ position:absolute; width:196px; height:46px; border-radius:10px; padding:7px 10px;
+  background:#fff; border:1px solid var(--line); cursor:pointer;
+  transition:box-shadow .14s, border-color .14s, opacity .14s; }
+.node .nn{ font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.node .nm{ font-size:9.5px; color:var(--t3); font-family:var(--mono); display:flex; gap:6px;
+  align-items:center; margin-top:1px; }
+.node.done{ border:1.5px solid var(--navy); background:#F7FAFF;
+  box-shadow:0 2px 7px -2px rgba(27,42,68,.22); }
+.node.done .nn{ font-weight:700; }
+.node .cnt{ position:absolute; right:-7px; top:-7px; min-width:19px; height:19px; border-radius:10px;
+  background:var(--navy); color:#fff; font-size:10.5px; font-weight:700; font-family:var(--mono);
+  display:flex; align-items:center; justify-content:center; padding:0 5px; }
+.node.idle{ border-style:dashed; }
+.node.idle .nn{ color:var(--t2); font-weight:500; }
+.node.out{ border-style:dashed; background:#FCFCFD; }
+.node.out .nn{ color:var(--t3); }
+.node.out .nm{ color:#B6BEC9; }
+.node .tag{ font-size:9px; border-radius:4px; padding:0 4px; }
+.node .tag.out{ background:#F1F5F9; color:var(--t3); }
+.node .tag.ok{ background:var(--green-50); color:#15803D; }
+.node .tag.run{ background:var(--blue-50); color:var(--blue-d); font-weight:700; }
+/* ★ 焦点环（建议 ②）：只加环，**不重排** */
+.node.focus{ box-shadow:0 0 0 3px rgba(37,99,235,.18), 0 3px 10px -2px rgba(27,42,68,.24); }
+.node.focus::after{ content:'焦点'; position:absolute; left:9px; bottom:-8px; font-size:9px;
+  background:var(--blue-d); color:#fff; border-radius:4px; padding:0 5px; font-family:var(--mono); }
+.node.nb{ border-color:var(--blue); }
+.node.faded{ opacity:.34; }
+.node.running{ border-color:var(--blue); animation:breathe 1.7s ease-in-out infinite; }
+@keyframes breathe{
+  0%,100%{ box-shadow:0 0 0 0 rgba(59,130,246,.42); }
+  50%{ box-shadow:0 0 0 7px rgba(59,130,246,0); }
+}
+
+/* 悬停浮层 */
+.pop{ position:absolute; z-index:20; width:344px; background:#fff; border-radius:11px;
+  box-shadow:0 14px 36px -10px rgba(16,24,40,.30), 0 0 0 1px rgba(16,24,40,.06);
+  padding:11px 13px; pointer-events:none; opacity:0; transform:translateY(4px);
+  transition:opacity .13s, transform .13s; }
+.pop.show{ opacity:1; transform:translateY(0); }
+.pop .pt{ font-size:11.5px; font-weight:700; color:var(--t2); margin-bottom:2px; }
+.pop .psub{ font-size:10px; color:var(--t3); margin-bottom:8px; }
+.pop .prow{ display:flex; gap:8px; padding:6px 0; border-top:1px solid var(--line-2); }
+.pop .pdot{ width:6px; height:6px; border-radius:50%; background:var(--blue-d); margin-top:6px; flex:0 0 6px; }
+.pop .pname{ font-size:12px; font-weight:600; }
+.pop .pw{ font-family:var(--mono); font-size:10px; color:var(--t3); }
+.pop .pw.live{ color:var(--blue-d); font-weight:700; }
+.pop .preason{ font-size:11px; color:var(--t2); line-height:1.5; margin-top:1px;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.pop .pempty{ font-size:11.5px; color:var(--t3); line-height:1.6; }
+.pop .pnote{ font-size:10px; color:#B45309; background:#FFFBF5; border-radius:6px;
+  padding:5px 8px; margin-top:7px; line-height:1.5; }
+
+/* 抽屉 */
+.drawer{ position:absolute; right:0; top:46px; bottom:0; width:430px; background:#fff;
+  border-left:1px solid var(--line); box-shadow:-14px 0 34px -18px rgba(16,24,40,.3);
+  transform:translateX(100%); transition:transform .2s ease; z-index:12;
+  display:flex; flex-direction:column; }
+.drawer.show{ transform:translateX(0); }
+.dhd{ padding:13px 16px 11px; border-bottom:1px solid var(--line-2); display:flex; gap:10px; align-items:flex-start; }
+.dhd .dtitle{ font-size:14px; font-weight:700; }
+.dhd .dsub{ font-size:10.5px; color:var(--t3); font-family:var(--mono); margin-top:2px; }
+.dclose{ margin-left:auto; font-size:15px; color:var(--t3); cursor:pointer; line-height:1; }
+.dbd{ padding:13px 16px; overflow:auto; flex:1; }
+.dlead{ font-size:13px; line-height:1.7; }
+.dlead b{ font-family:var(--mono); color:var(--red); }
+.dsec{ font-size:11px; font-weight:700; color:var(--t2); margin:14px 0 7px; }
+.dchip{ display:inline-flex; align-items:center; gap:5px; font-size:11.5px; border:1px solid var(--blue-100);
+  background:var(--blue-50); color:var(--blue-d); border-radius:14px; padding:3px 11px; margin:0 5px 5px 0;
+  font-weight:600; }
+.dchip.grey{ border-color:var(--line); background:#FCFCFD; color:var(--t2); font-weight:400; }
+.dchip .w{ font-family:var(--mono); font-size:9.5px; opacity:.8; }
+.dtoggle{ font-size:11.5px; color:var(--t2); border:1px solid var(--line); background:#FAFBFC;
+  border-radius:7px; padding:4px 11px; display:inline-block; }
+.dnote{ font-size:11.5px; color:var(--t2); line-height:1.65; background:#FCFCFD;
+  border:1px solid var(--line-2); border-radius:8px; padding:9px 11px; }
+.dbtns{ display:flex; gap:8px; margin-top:12px; }
+
+/* 说明区 */
+.notes{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.note{ background:#fff; border-radius:11px; padding:15px 17px;
+  box-shadow:0 1px 3px rgba(16,24,40,.06), 0 0 0 1px rgba(16,24,40,.04); }
+.note h3{ margin:0 0 9px; font-size:13.5px; font-weight:700; }
+.note p{ margin:0 0 8px; font-size:12.5px; color:var(--t2); line-height:1.75; }
+.note p:last-child{ margin-bottom:0; }
+.note b{ color:var(--t1); }
+.note code{ font-family:var(--mono); font-size:11.5px; background:#F4F6FA; border-radius:4px;
+  padding:1px 5px; color:#334155; }
+ul.tight{ margin:0; padding-left:17px; }
+ul.tight li{ font-size:12.5px; color:var(--t2); line-height:1.8; }
+.warnbox{ background:#FFFBF5; border:1px solid #FDE7C7; border-radius:11px; padding:15px 17px; }
+.warnbox h3{ color:#B45309; }
+.okbox{ background:#F5FBF7; border:1px solid #CCEBD8; border-radius:11px; padding:15px 17px; }
+.okbox h3{ color:#15803D; }
+.redbox{ background:#FEF4F4; border:1px solid #F8D5D5; border-radius:11px; padding:15px 17px; }
+.redbox h3{ color:#B91C1C; }
+.pill{ display:inline-block; font-size:10.5px; border-radius:20px; padding:2px 9px; font-family:var(--mono); }
+.pill.red{ background:var(--red-50); color:#B91C1C; }
+.pill.blu{ background:var(--blue-50); color:var(--blue-d); }
+.pill.gry{ background:#F2F4F7; color:var(--t2); }
+.pill.grn{ background:var(--green-50); color:#15803D; }
+.pill.amb{ background:var(--amber-50); color:#B45309; }
+.kv{ display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:12.5px; }
+.kv .k{ color:var(--t2); white-space:nowrap; }
+.legend{ display:flex; gap:20px; flex-wrap:wrap; padding:14px 18px; }
+.lg{ display:flex; gap:9px; align-items:flex-start; font-size:12px; color:var(--t2); }
+.lg .sw{ width:52px; height:22px; flex:0 0 52px; position:relative; }
+.lg .sw svg{ width:52px; height:22px; }
+.lg b{ color:var(--t1); display:block; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="doc-head">
+    <h1>意图工作台 · 意图网络 v2</h1>
+    <span class="sub">按 5 条建议完善 · 并修正 v1 的一处语义错误</span>
+    <span class="tag">评审稿 v2 · 可交互 · 2026-09-19 真实数据</span>
+  </div>
+
+  <div class="tips">
+    <span class="tip"><b>鼠标移到节点</b> → 下一步 + M/N + 理由</span>
+    <span class="tip"><b>点节点</b> → 切焦点（<b>布局不重排</b>）+ 开详情</span>
+    <span class="tip"><b>点左栏某行的 →N 角标</b> → 网络跳到那条意图</span>
+    <span class="tip"><b>点右上「模拟一次运行」</b> → 运行动画</span>
+  </div>
+
+  <div class="stage">
+    <div class="topbar">
+      <div class="brand"><span class="logo">意</span>意图工作台</div>
+      <div class="cmdk">搜意图、对象、动作…<span class="kbd">⌘K</span></div>
+      <div class="top-right"><span>主管视角</span><span>我的管理驾驶舱</span><div class="avatar">管</div></div>
+    </div>
+    <div class="ctxbar">
+      <span style="font-weight:600;color:var(--t1)">▸ 上下文</span>
+      <span class="cchip">时间窗 近90天</span>
+      <span class="cchip" style="border-style:dashed;color:var(--t3)">＋</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--t3)">
+        不按对象过滤网络 —— 13/17 条运行没记对象参数，过滤会删掉图的主体</span>
+    </div>
+
+    <div class="body">
+      <!-- ================= 左栏 ================= -->
+      <div class="left">
+        <div class="focus">
+          <div><div class="fname">我的管理驾驶舱</div><div class="fmeta">主管 · 我自己 · 23 条能力可用</div></div>
+          <span class="switch">全部能力</span>
+        </div>
+        <div class="hero">
+          <div class="hline">给 <span class="subj">宏图设计院·智慧工地管理系统</span> 做</div>
+          <div class="hact">商机推进策略</div>
+          <div class="hwhy">39.90 万</div>
+          <div class="hbtns"><span class="btn pri">执行</span><span class="btn ghost">换一件事</span>
+            <span class="adopt">摆进上下文</span></div>
+        </div>
+        <div class="navtiles">
+          <div class="ntile tone-blue on"><div class="ntic">📥</div><div class="ntt">今天要办的</div><div class="ntn">16 件</div></div>
+          <div class="ntile tone-blue off"><div class="ntic">☑</div><div class="ntt">我该办的</div><div class="ntn">没有待办</div></div>
+          <div class="ntile tone-purple"><div class="ntic">⚡</div><div class="ntt">我常做的</div><div class="ntn">前 5 个</div></div>
+          <div class="ntile tone-purple off"><div class="ntic">✦</div><div class="ntt">批量摸底</div><div class="ntn">未开始</div></div>
+          <div class="ntile tone-slate" style="grid-column:1/-1"><div class="ntic">🕘</div><div class="ntt">做过的</div><div class="ntn">17 条</div></div>
+        </div>
+
+        <div class="qwrap">
+          <div class="qhd">
+            <span class="qt">今天要办的</span><span class="qn">16 件 · <b style="color:var(--red);font-family:var(--mono)">7</b> 件要救</span>
+            <span class="qm">全部 ▸</span>
+          </div>
+          <div id="qrows"></div>
+          <div class="legendline">
+            <b style="color:var(--blue-d);font-family:var(--mono)">→N</b> = 这条意图在最近一次运行里给出了几个下一步。
+            <b>没跑过就没有角标</b>（不给 <span class="pill gry">→0</span>，那会让人以为"没得接"）。
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 中间：网络 ================= -->
+      <div class="graph" id="graph">
+        <div class="ghead">
+          <div>
+            <div class="gt">意图网络</div>
+            <div class="gs" id="gsub">—</div>
+          </div>
+          <div class="gbtn">
+            <span class="b" id="btnAll">全部展开</span>
+            <span class="b" id="btnLive">只看前瞻</span>
+            <span class="b" id="btnRun">▶ 模拟一次运行</span>
+          </div>
+        </div>
+        <div class="gcanvas" id="gcanvas">
+          <div class="ginner" id="ginner">
+            <svg class="wires" id="wires" width="1160" height="742"></svg>
+            <div id="nodes"></div>
+            <div class="gcol" style="left:34px">第 0 层 · 你自己发起的 <span class="cnum">3</span></div>
+            <div class="gcol" style="left:386px">第 1 层 · 跑完建议接着做 <span class="cnum">11</span></div>
+            <div class="gcol" style="left:738px">第 2 层 <span class="cnum">4</span></div>
+          </div>
+        </div>
+        <div class="pop" id="pop"></div>
+
+        <div class="drawer" id="drawer">
+          <div class="dhd">
+            <div><div class="dtitle" id="dTitle">—</div><div class="dsub" id="dSub">—</div></div>
+            <span class="dclose" id="dClose">✕</span>
+          </div>
+          <div class="dbd" id="dBody"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== 两层边 ============================== -->
+  <div class="sect" style="margin-top:22px">
+    <div class="sect-hd"><h2>v2 的核心改动：边分成两层</h2>
+      <span class="note">v1 把边画成"走过的路"——实测不是，见下面红框</span></div>
+    <div class="card">
+      <div class="legend">
+        <div class="lg">
+          <span class="sw"><svg viewBox="0 0 52 22"><path d="M2,11 C18,11 34,11 50,11" fill="none" stroke="#2563EB" stroke-width="2"/></svg></span>
+          <span><b>实线 · 前瞻（能行动）</b>焦点意图<b>最近一次运行</b>给出的下一步。换焦点，实线就重新长出来</span>
+        </div>
+        <div class="lg">
+          <span class="sw"><svg viewBox="0 0 52 22"><path d="M2,11 C18,11 34,11 50,11" fill="none" stroke="#D5DBE3" stroke-width="1.2" stroke-dasharray="3 4"/></svg></span>
+          <span><b>虚线 · 历史（只是背景）</b>累计"被建议过"多少次。<b>不代表发生过</b></span>
+        </div>
+        <div class="lg">
+          <span class="sw" style="font-family:var(--mono);font-size:10px;color:var(--blue-d);font-weight:700;padding-top:3px">9/13</span>
+          <span><b>M / N</b>父节点跑 N 次，其中 M 次建议了它。<b>N&lt;3 的标"样本少"</b>，不给百分比</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== 红框：重要发现 ============================== -->
+  <div class="sect">
+    <div class="sect-hd"><h2>你问的那个问题：它不是历史记录</h2></div>
+    <div class="notes">
+      <div class="redbox">
+        <h3>⚠ 它连"历史记录"都不是——是"建议记录"</h3>
+        <p>17 条运行里，有 13 条信封带 <code>nextIntents</code>，观测出 15 个不同的下一步目标。
+          但把这 15 个和你**真正跑过的意图**对一遍：</p>
+        <div class="kv" style="margin:10px 0">
+          <span class="k"><span class="pill amb">被建议过</span></span><span><b>15</b> 个不同的下一步目标</span>
+          <span class="k"><span class="pill grn">后来跑过</span></span><span><b>1</b> 个（<code>逾期风险预警</code>）</span>
+        </div>
+        <p>而且反推"这次是不是跟着上一条建议走的"——按时间相邻 + 建议命中筛，**命中 0 次**：
+          唯一跑过的那个意图，是独立发起的。</p>
+        <p style="margin-bottom:0"><b>所以图上的边 = "模型建议过"，不是"用户走过"。</b>
+          v1 的文案把它写成"接力""走过的路"，是**过度解读**，v2 已全部改掉。</p>
+      </div>
+      <div class="warnbox">
+        <h3>⚠ 连带一个更难看的结论：现在的"网"其实是星形</h3>
+        <p><code>今日跟进优先级</code> 跑了 <b>13 次</b>，每次吐的下一步几乎一模一样
+          （逾期风险预警／续约策略／合同审批预检／线索跟进建议）。</p>
+        <p>所以 v1 图上那些"×8 / ×9"的边，画出来是<b>同一批重复建议的叠加</b>，
+          不是"你反复走了这条路"。所谓网状，主要是<b>聚合出来的形状</b>。</p>
+        <p style="margin-bottom:0">这不是实现 bug，是<b>语义</b>问题：把"建议"当"行为"聚合，就会得到一张看着很丰富、
+          实际上只有一个源头的图。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== 冷启动 ============================== -->
+  <div class="sect">
+    <div class="sect-hd"><h2>顺带暴露的第三个问题：冷启动是空的</h2></div>
+    <div class="notes">
+      <div class="warnbox">
+        <h3>23 条能力里，只有 4 条有"前瞻边"</h3>
+        <p>前瞻边来自"这条意图最近一次运行说了什么"。没跑过的意图，<b>一条前瞻边都没有</b>——
+          左栏 16 行里 6 行的角标是空的（合同审批预检、线索质量评分、合同风险审查）。</p>
+        <p style="margin-bottom:0"><b>推论</b>：网络的可用度 = 你的使用量。
+          <b>新账号打开就是一张空图</b>；而这恰恰是"一眼知道要做什么"最需要起作用的时候。</p>
+      </div>
+      <div class="okbox">
+        <h3>✓ 能补这个洞的现成东西：可执行性（前瞻、不依赖历史）</h3>
+        <p>前端已经在算 <code>satisfiability(entry, slots)</code>——<b>当前上下文下这条意图能不能跑、还差哪个槽位</b>。
+          它完全不用历史：新账号摆上客户，需要 <code>customerId</code> 的那 7 条立刻变"可执行"。</p>
+        <p style="margin-bottom:0">所以真正不依赖历史的"前瞻"信息是<b>节点状态</b>，不是<b>边</b>。
+          <b>边天生只能来自观测</b>（或人工设计，那就是编）。这一点需要你定：见页面底部问题 1。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== 待定 ============================== -->
+  <div class="sect">
+    <div class="sect-hd"><h2>这一稿之后，需要你定的两件事</h2></div>
+    <div class="notes">
+      <div class="redbox">
+        <h3>1 · 网络的"重点"到底放哪</h3>
+        <p>你上一轮说"重点突出已经执行的"。查完数据我建议<b>换一个重点</b>：</p>
+        <ul class="tight">
+          <li><b>已执行</b> = 历史事实，但只有 4/23，而且新账号全没有 → 突出它等于突出"你用得少"</li>
+          <li><b>现在能跑</b>（<code>satisfiability</code> 算出来的）= 前瞻、当下、与新老账号无关 → <b>我建议把它做成第一重点</b></li>
+          <li><b>已执行</b> 降为第二重点（一个 ✓ 标记即可，不再抢视觉）</li>
+        </ul>
+        <p style="margin-bottom:0">要不要这样换？不换也行，但"新账号打开是一张灰图"这个结果你得认。</p>
+      </div>
+      <div class="okbox">
+        <h3>2 · 要不要把"真的走过"记下来</h3>
+        <p>要让边变成真路径，需要一次很小的埋点：点 <code>下一步</code> 胶囊执行时，把来源 run 一起送上去，
+          留痕里加一个字段（形如 <code>triggeredBy: {traceId, kind}</code>）。</p>
+        <p>前端现在<b>已经有全部信息</b>（点的是哪条 run 的哪个 nextIntent chip 是知道的），
+          只是没往上传。改动很小，但<b>从此图会随使用变准</b>，而不是永远停在"建议"。</p>
+        <p style="margin-bottom:0">不做的话，这张图永远只是"模型爱说什么"，不是"你怎么干活"。</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;font-size:11.5px;color:var(--t3);margin-top:24px;">
+    设计稿 v2 · 未实现　|　真实页面 http://127.0.0.1:48080/intent-ui/　|　产品代码本轮未动
+  </div>
+</div>
+
+<script>
+/* ===== 真实接口数据 2026-09-19 · 由 graph-embed2.mjs / queue-rows.mjs 生成 ===== */
+const NODES = [{"id":"crm.backlog.today-priority","name":"今日跟进优先级","runs":13,"status":"SUCCESS","ms":19400,"runnable":true,"lastNext":["crm.receivable.overdue-warning","crm.contract.renewal-plan","crm.contract.audit-precheck","crm.clue.follow-up-suggestion","crm.backlog.weekly-review"]},{"id":"crm.business.advance-strategy","name":"商机推进策略","runs":2,"status":"SUCCESS","ms":19185,"runnable":true,"lastNext":["crm.business.quote-strategy","crm.business.risk-check","crm.contact.decision-role"]},{"id":"crm.customer.health-check","name":"客户健康度诊断","runs":1,"status":"SUCCESS","ms":22973,"runnable":true,"lastNext":["crm.receivable.collection-plan","crm.customer.churn-warning","crm.customer.visit-prep"]},{"id":"crm.receivable.overdue-warning","name":"逾期风险预警","runs":1,"status":"SUCCESS","ms":23022,"runnable":true,"lastNext":["crm.receivable.collection-plan","crm.receivable.reconcile","crm.receivable.payment-habit","crm.contract.fulfillment-track"]},{"id":"crm.business.quote-strategy","name":"报价策略分析","runs":0,"status":null,"ms":null,"runnable":true,"lastNext":[]},{"id":"crm.backlog.weekly-review","name":"本周跟进复盘","runs":0,"status":null,"ms":null,"runnable":false,"lastNext":[]},{"id":"crm.contract.fulfillment-track","name":"合同履约跟踪","runs":0,"status":null,"ms":null,"runnable":false,"lastNext":[]},{"id":"crm.contract.audit-precheck","name":"合同审批预检","runs":0,"status":null,"ms":null,"runnable":true,"lastNext":[]},{"id":"crm.receivable.collection-plan","name":"回款催收计划","runs":0,"status":null,"ms":null,"runnable":true,"lastNext":[]},{"id":"crm.receivable.reconcile","name":"回款三方对账","runs":0,"status":null,"ms":null,"runnable":false,"lastNext":[]},{"id":"crm.contact.decision-role","name":"决策角色识别","runs":0,"status":null,"ms":null,"runnable":false,"lastNext":[]},{"id":"crm.customer.visit-prep","name":"客户 360° 拜访准备","runs":0,"status":null,"ms":null,"runnable":true,"lastNext":[]},{"id":"crm.customer.duplicate-check","name":"客户查重","runs":0,"status":null,"ms":null,"runnable":false,"lastNext":[]},{"id":"crm.receivable.payment-habit","name":"客户付款习惯分析","runs":0,"status":null,"ms":null,"runnable":false,"lastNext":[]},{"id":"crm.customer.churn-warning","name":"客户流失预警","runs":0,"status":null,"ms":null,"runnable":false,"lastNext":[]},{"id":"crm.business.risk-check","name":"商机风险评估","runs":0,"status":null,"ms":null,"runnable":false,"lastNext":[]},{"id":"crm.clue.follow-up-suggestion","name":"线索跟进建议","runs":0,"status":null,"ms":null,"runnable":true,"lastNext":[]},{"id":"crm.contract.renewal-plan","name":"续约策略","runs":0,"status":null,"ms":null,"runnable":true,"lastNext":[]}];
+const HIST_EDGES = [{"from":"crm.backlog.today-priority","to":"crm.receivable.overdue-warning","count":9,"reason":"今天最大影响项是 5 笔逾期回款计划，需要按逾期天数分级动作并可直接写入跟进记录","parentRuns":13},{"from":"crm.backlog.today-priority","to":"crm.contract.renewal-plan","count":9,"reason":"合同即将到期 1 份，需结合履约与回款表现给出续约概率、报价策略与话术","parentRuns":13},{"from":"crm.backlog.today-priority","to":"crm.contract.audit-precheck","count":8,"reason":"今天有 2 份合同待审核，审批前先预检金额、折扣、账期、主体一致性可提高通过率","parentRuns":13},{"from":"crm.backlog.today-priority","to":"crm.clue.follow-up-suggestion","count":8,"reason":"待跟进线索 3 条、最长 15 天未联系，需要个性化话术和转化路径建议","parentRuns":13},{"from":"crm.business.advance-strategy","to":"crm.business.risk-check","count":2,"reason":"从预算、决策链、竞品、时间窗、技术五个维度为 #360 做一次兜底体检，重点关注决策人未锁定与方案逾期","parentRuns":2},{"from":"crm.business.advance-strategy","to":"crm.business.quote-strategy","count":2,"reason":"399,000 元已让 5%、距 40 万预算上限仅剩约 1,000 元，需要拆解报价结构与折扣空间，并给出报表定制增项的打包话术","parentRuns":2},{"from":"crm.business.advance-strategy","to":"crm.contact.decision-role","count":2,"reason":"客户 320 仅覆盖 2 位联系人、1 位主联系人，需判断现有联系人在签批链中的角色并补位","parentRuns":2},{"from":"crm.backlog.today-priority","to":"crm.backlog.weekly-review","count":2,"reason":"清完今日 5 类待办后可做一次本周复盘，把风险客户与下周重点定下来","parentRuns":13},{"from":"crm.business.advance-strategy","to":"crm.customer.duplicate-check","count":1,"reason":"「宏图建筑设计院有限公司」与「宏图建筑设计院（历史归档）」疑似重复，需按名称核实后合并或归档","parentRuns":2},{"from":"crm.customer.health-check","to":"crm.receivable.collection-plan","count":1,"reason":"两笔逾期合计 191,200 元（最长 23 天），需按逾期天数生成分级催收动作与话术","parentRuns":1},{"from":"crm.customer.health-check","to":"crm.customer.churn-warning","count":1,"reason":"A 级客户 37 天未联系、在手商机为 0，需识别流失信号并给出挽回动作","parentRuns":1},{"from":"crm.customer.health-check","to":"crm.customer.visit-prep","count":1,"reason":"计划联系日已逾期 13 天，回访前需一份含时间线、在手业务与必问问题的简报","parentRuns":1},{"from":"crm.receivable.overdue-warning","to":"crm.receivable.collection-plan","count":1,"reason":"已锁定 5 笔逾期与 2 笔即将到期，可据此生成分段催收计划并写入跟进记录。","parentRuns":1},{"from":"crm.receivable.overdue-warning","to":"crm.receivable.reconcile","count":1,"reason":"金辉电子 380/387、百味食品 386 存在计划与回款记录不一致，需先对平再催收。","parentRuns":1},{"from":"crm.receivable.overdue-warning","to":"crm.receivable.payment-habit","count":1,"reason":"金辉电子、天诚物流多次逾期，可分析历史回款周期以预测下次回款时点。","parentRuns":1},{"from":"crm.receivable.overdue-warning","to":"crm.contract.fulfillment-track","count":1,"reason":"对照合同金额与回款进度，识别逾期合同（380/385/386/387）的履约与收款风险。","parentRuns":1}];
+const QUEUE = [{"obj":"宏图设计院·智慧工地管理系统","intentId":"crm.business.advance-strategy","intentName":"商机推进策略","items":1,"money":"39.90 万","badge":3},{"obj":"金辉电子科技有限公司","intentId":"crm.receivable.overdue-warning","intentName":"逾期风险预警","items":2,"money":"19.12 万","badge":4},{"obj":"天诚智慧物流园区","intentId":"crm.receivable.overdue-warning","intentName":"逾期风险预警","items":1,"money":"13.00 万","badge":4},{"obj":"朗润医疗·进销存管理","intentId":"crm.business.advance-strategy","intentName":"商机推进策略","items":1,"money":"8.00 万","badge":3}];
+
+const byId = new Map(NODES.map((n) => [n.id, n]));
+const nm = (id) => byId.get(id)?.name ?? id;
+
+/* ---------------------- 左栏队列行 + →N 角标 ---------------------- */
+const qrows = document.getElementById('qrows');
+for (const q of QUEUE.slice(0, 4)) {
+  const el = document.createElement('div');
+  el.className = 'qrow ' + (q.intentId.includes('overdue') ? 'd' : 'w');
+  el.dataset.intent = q.intentId;
+  const badge = q.badge > 0
+    ? `<span class="badge" title="最近一次运行给了 ${q.badge} 个下一步">→${q.badge}</span>`
+    : '<span class="badge zero" title="这条意图还没跑过，没有前瞻边">没跑过</span>';
+  el.innerHTML = `
+    <div class="qmain">
+      <div class="qobj">${q.obj}</div>
+      <div class="qmeta"><span>${q.intentName}</span>${q.items > 1 ? `<span class="tchip">${q.items} 件</span>` : ''}</div>
+    </div>
+    <span class="qmoney">${q.money ?? ''}</span>
+    ${badge}`;
+  el.onclick = () => setFocus(q.intentId, true);
+  qrows.appendChild(el);
+}
+
+/* ---------------------------- 布局（同 v1） ---------------------------- */
+const COL_X = [34, 386, 738];
+const NW = 196, NH = 46, STEP = 56, TOP = 30;
+const parents = new Map(), children = new Map();
+for (const e of HIST_EDGES) {
+  (children.get(e.from) ?? children.set(e.from, []).get(e.from)).push(e.to);
+  (parents.get(e.to) ?? parents.set(e.to, []).get(e.to)).push(e.from);
+}
+const roots = NODES.filter((n) => !parents.has(n.id)).map((n) => n.id);
+const order = [], seen = new Set();
+const walk = (id) => { if (seen.has(id)) return; seen.add(id); order.push(id);
+  for (const c of (children.get(id) ?? [])) walk(c); };
+roots.forEach(walk); NODES.forEach((n) => walk(n.id));
+const depth = new Map();
+const setDepth = (id, d) => { if ((depth.get(id) ?? -1) >= d) return; depth.set(id, d);
+  for (const c of (children.get(id) ?? [])) setDepth(c, d + 1); };
+roots.forEach((id) => setDepth(id, 0));
+NODES.forEach((n) => { if (!depth.has(n.id)) depth.set(n.id, 0); });
+const cols = [[], [], []];
+for (const id of order) cols[depth.get(id)].push(id);
+const pos = new Map();
+cols[1].forEach((id, i) => pos.set(id, { x: COL_X[1], y: TOP + i * STEP }));
+const centerOf = (ids, fb) => { const ys = ids.map((i) => pos.get(i)).filter(Boolean).map((p) => p.y + NH / 2);
+  return ys.length ? (Math.min(...ys) + Math.max(...ys)) / 2 : TOP + fb * STEP + NH / 2; };
+cols[0].forEach((id, i) => pos.set(id, { x: COL_X[0], y: Math.round(centerOf(children.get(id) ?? [], i) - NH / 2) }));
+const c2y = Math.round((TOP + cols[1].length * STEP - 10) / 2 - (cols[2].length * STEP - 10) / 2);
+cols[2].forEach((id, i) => pos.set(id, { x: COL_X[2], y: c2y + i * STEP }));
+
+/* ------------------------------ 渲染 ------------------------------ */
+const wires = document.getElementById('wires');
+const nodeLayer = document.getElementById('nodes');
+const SVGNS = 'http://www.w3.org/2000/svg';
+const edgePath = (a, b) => {
+  const x1 = a.x + NW, y1 = a.y + NH / 2, x2 = b.x, y2 = b.y + NH / 2;
+  const dx = Math.max(40, (x2 - x1) * 0.5);
+  return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+};
+const edgeEls = new Map();
+for (const e of HIST_EDGES) {
+  const a = pos.get(e.from), b = pos.get(e.to);
+  if (!a || !b) continue;
+  const p = document.createElementNS(SVGNS, 'path');
+  p.setAttribute('d', edgePath(a, b)); p.setAttribute('class', 'e hist');
+  p.setAttribute('marker-end', 'url(#arw)');
+  wires.appendChild(p);
+  const t = document.createElementNS(SVGNS, 'text');
+  t.setAttribute('x', (a.x + NW + b.x) / 2); t.setAttribute('y', (a.y + b.y) / 2 + NH / 2 - 6);
+  t.setAttribute('text-anchor', 'middle');
+  // ★ 建议 ④：M / N 而不是 ×M
+  t.textContent = `${e.count}/${e.parentRuns}`;
+  if (e.parentRuns < 3) { t.setAttribute('class', 'warn'); t.textContent += ' 样本少'; }
+  wires.appendChild(t);
+  edgeEls.set(`${e.from}->${e.to}`, { path: p, label: t });
+}
+wires.insertAdjacentHTML('afterbegin',
+  `<defs><marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+   <path d="M0,1 L9,5 L0,9" fill="none" stroke="#B9C2CE" stroke-width="1.4"/></marker></defs>`);
+
+const nodeEls = new Map();
+for (const n of NODES) {
+  const p = pos.get(n.id);
+  if (!p) continue;
+  const el = document.createElement('div');
+  el.className = 'node ' + (n.runs > 0 ? 'done' : (n.runnable ? 'idle' : 'out'));
+  el.style.left = p.x + 'px'; el.style.top = p.y + 'px';
+  const meta = n.runs > 0
+    ? `<span class="tag ok">✓ ${(n.ms / 1000).toFixed(1)}s</span><span>跑过 ${n.runs} 次</span>`
+    : (n.runnable
+      ? '<span>可发起 · 还没跑过</span>'
+      : '<span class="tag out">档案外</span><span>不在能力里</span>');
+  el.innerHTML = `${n.runs > 0 ? `<span class="cnt">${n.runs}</span>` : ''}
+    <div class="nn">${n.name}</div><div class="nm">${meta}</div>`;
+  nodeLayer.appendChild(el);
+  nodeEls.set(n.id, el);
+}
+
+/* ------------------------------ 焦点 ------------------------------ */
+const outgoing = new Map();
+for (const e of HIST_EDGES) (outgoing.get(e.from) ?? outgoing.set(e.from, []).get(e.from)).push(e);
+let focus = 'crm.business.advance-strategy';   // 默认 = 主角卡那条意图
+let onlyLive = false, runningId = null;
+
+/** 焦点意图"最近一次运行"给出的下一步（前瞻）。 */
+const liveTargets = (id) => new Set(byId.get(id)?.lastNext ?? []);
+
+function paint() {
+  const live = liveTargets(focus);
+  const nb = new Set([focus, ...(parents.get(focus) ?? []), ...(children.get(focus) ?? [])]);
+  for (const [id, el] of nodeEls) {
+    el.classList.toggle('focus', id === focus);
+    el.classList.toggle('nb', id !== focus && nb.has(id));
+    el.classList.toggle('faded', !nb.has(id));
+  }
+  for (const e of HIST_EDGES) {
+    const hit = edgeEls.get(`${e.from}->${e.to}`);
+    if (!hit) continue;
+    const isLive = e.from === focus && live.has(e.to);
+    hit.path.setAttribute('class', 'e ' + (isLive ? 'live' : (onlyLive ? 'dim' : 'hist')));
+    hit.label.setAttribute('class', isLive ? 'live' : (onlyLive ? 'dim' : (e.parentRuns < 3 ? 'warn' : '')));
+    hit.path.style.display = onlyLive && !isLive ? 'none' : '';
+    hit.label.style.display = onlyLive && !isLive ? 'none' : '';
+  }
+  const n = byId.get(focus);
+  document.getElementById('gsub').textContent =
+    `焦点：${n?.name ?? focus} · 前瞻 ${live.size} 条 · 全图 ${HIST_EDGES.length} 条历史边`
+    + ` · 已执行 ${NODES.filter((x) => x.runs > 0).length}/${NODES.length} 个节点`;
+  for (const el of document.querySelectorAll('.qrow')) {
+    el.classList.toggle('sel', el.dataset.intent === focus);
+  }
+}
+
+/* ---------------------------- 悬停浮层 ---------------------------- */
+const pop = document.getElementById('pop');
+function hoverNode(id) {
+  const outs = outgoing.get(id) ?? [];
+  const live = liveTargets(id);
+  const n = byId.get(id);
+  const rows = outs.length
+    ? outs.map((e) => `<div class="prow"><span class="pdot" style="background:${live.has(e.to) ? '#2563EB' : '#CBD5E1'}"></span><div>
+        <div class="pname">${nm(e.to)} <span class="pw${live.has(e.to) ? ' live' : ''}">${e.count}/${e.parentRuns}${e.parentRuns < 3 ? ' 样本少' : ''}</span></div>
+        <div class="preason">${e.reason}</div></div></div>`).join('')
+    : `<div class="pempty">${n.runs > 0
+        ? '这次运行没有给出下一步——信封里 nextIntents 是空的。'
+        : '<b>还没跑过它</b>，所以既没有前瞻边，也没有历史边。<br>这不是「没有下一步」，是「没观测过」。'}</div>`;
+  pop.innerHTML = `<div class="pt">${n.name} 的下一步</div>
+    <div class="psub">${live.size ? `实线 ${live.size} 条来自最近一次运行` : '没有来自最近一次运行的前瞻边'}
+      · ${outs.length} 条历史建议</div>${rows}
+    <div class="pnote">这里的边含义是「<b>建议过</b>」，不是「走过」。
+      实测 15 个被建议的目标里只有 1 个后来真的跑了。</div>`;
+  const cv = document.getElementById('gcanvas');
+  const p = pos.get(id); const GW = 1120, PW = 358;
+  let left = p.x + NW + 12 - cv.scrollLeft;
+  if (left + PW > GW) left = p.x - PW - 12 - cv.scrollLeft;
+  if (left < 6) left = 6;
+  pop.style.left = left + 'px';
+  pop.style.top = Math.max(52, Math.min(46 + p.y - 6 - cv.scrollTop, 808 - 268)) + 'px';
+  pop.classList.add('show');
+}
+const unhover = () => pop.classList.remove('show');
+
+for (const [id, el] of nodeEls) {
+  el.addEventListener('mouseenter', () => hoverNode(id));
+  el.addEventListener('mouseleave', unhover);
+  el.addEventListener('click', () => setFocus(id, true));
+}
+
+/* ★ 建议 ①/②：切焦点**只重绘高亮，不动坐标** */
+function setFocus(id, open) {
+  focus = id; paint();
+  if (open) openDrawer(id);
+}
+
+/* ---------------------------- 抽屉 ---------------------------- */
+const drawer = document.getElementById('drawer');
+function openDrawer(id) {
+  const n = byId.get(id); const outs = outgoing.get(id) ?? []; const live = liveTargets(id);
+  document.getElementById('dTitle').textContent = n.name;
+  document.getElementById('dSub').textContent = n.runs
+    ? `${id} · 跑过 ${n.runs} 次 · 最近 ${n.status} ${(n.ms / 1000).toFixed(1)}s`
+    : `${id} · 没跑过${n.runnable ? '' : ' · 不在当前档案能力里'}`;
+  const lead = id === 'crm.receivable.overdue-warning'
+    ? '今天排在最前面的是 <b>金辉电子科技有限公司</b>：2 期回款逾期共 <b>19.12 万</b>，已逾期 23 天且 38 天没有联系。'
+    : (n.runs ? '（这里放那次运行的结论，一行两句，数字加粗）' : '没跑过，所以没有结果卡。<b>不给假结果。</b>');
+  document.getElementById('dBody').innerHTML = `
+    <div class="dlead">${lead}</div>
+    <div class="dsec">下一步 · 前瞻 ${live.size} / 历史 ${outs.length}</div>
+    ${outs.length ? outs.map((e) => `<span class="dchip${live.has(e.to) ? '' : ' grey'}">${nm(e.to)}
+        <span class="w">${e.count}/${e.parentRuns}</span></span>`).join('')
+      : '<span class="dchip grey">没观测过下一步</span>'}
+    <div class="dsec">这条边从哪来</div>
+    <div class="dnote">${parents.has(id)
+      ? `被 ${parents.get(id).map(nm).join('、')} 建议过。`
+      : '没有任何边指向它——它是你自己发起的起点。'}</div>
+    <div class="dsec">完整结果</div>
+    <span class="dtoggle">▸ 查看详情　8 项总览 · 5 件事 · 2 条明细</span>
+    <div class="dbtns">
+      ${n.runnable ? '<span class="btn pri">执行</span>' : '<span class="btn" style="color:#98A2B3">不在你能力里</span>'}
+      <span class="btn ghost">换个对象</span>
+    </div>`;
+  drawer.classList.add('show');
+}
+document.getElementById('dClose').onclick = () => drawer.classList.remove('show');
+
+/* ---------------------------- 工具条 ---------------------------- */
+document.getElementById('btnAll').onclick = () => {
+  onlyLive = false; document.getElementById('btnLive').classList.remove('on');
+  paint();
+};
+document.getElementById('btnLive').onclick = (ev) => {
+  onlyLive = !onlyLive;
+  ev.target.classList.toggle('on', onlyLive);
+  paint();
+};
+document.getElementById('btnRun').onclick = (ev) => {
+  const btn = ev.target;
+  if (runningId) {
+    nodeEls.get(runningId)?.classList.remove('running');
+    for (const { path } of edgeEls.values()) path.classList.remove('run');
+    btn.classList.remove('on'); btn.textContent = '▶ 模拟一次运行'; runningId = null; paint(); return;
+  }
+  runningId = focus;
+  nodeEls.get(runningId)?.classList.add('running');
+  const hit = edgeEls.get(`${parents.get(focus)?.[0]}->${focus}`);
+  if (hit) hit.path.classList.add('run');
+  btn.classList.add('on'); btn.textContent = '■ 停止模拟';
+  document.getElementById('gsub').textContent = `正在跑：${byId.get(focus).name} · 已等待 3 秒（只报可观测事实，不显示百分比）`;
+};
+
+paint();
+</script>
+</body>
+</html>

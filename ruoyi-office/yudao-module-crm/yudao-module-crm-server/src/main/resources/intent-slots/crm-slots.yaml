@@ -1,0 +1,95 @@
+# 意图工作台 · 上下文槽位类型登记表（CRM）
+#
+# 为什么需要这张表：IntentSpec.context[].key 只声明"我要哪个上下文键"，
+# 没声明"这个键指向哪种实体"。工作台要按实体去宿主反查（还在不在 / 我能看吗 / 它叫什么），
+# 就必须有一张「上下文键 ↔ 实体类型」的登记表。缺了它，前端只能靠猜 key 的前缀。
+#
+# 约定：
+#   type       槽位类型（前端与槽位解析 SPI 用的标识，一旦上线不可改）
+#   key        该槽位对齐的 IntentSpec.context[].key（IntentCatalogQuery.slotValue(type) 的反查依据）
+#   multi      是否允许集合模式（批量摸底的前提：只有 multi=true 的槽位能装多个实体）
+#   entity     是否需要宿主反查实体（false = 纯修饰型槽位，解析器不返回、前端不做失效标红）
+#   picker     怎么挑一个值（意图工作台四点优化设计 §4.2）。四选一：
+#                remote  —— 走 /intent/slots/candidates（宿主实现候选 SPI，数据权限自动生效）
+#                literal —— 值就是本表的 values
+#                custom  —— 宿主注册的具名选择器（复用宿主已有的实体选择组件）
+#                manual  —— 只能手输编号（什么后端能力都没有时的降级路径）
+#               **不写就自动推导**：entity → remote；有 values → literal；否则 manual。
+#               换宿主时只改这一行，工作台前端零改动。
+#   pickerHint 选择器里给用户看的一句说明（"默认给你最近在跟的客户"）
+#
+# groupFallbackTitle：工作台按实体给意图分组时，**挂不上任何实体槽位**的那些意图归到哪一组。
+#   那是唯一一组没有槽位可依的，所以组名在这里声明，而不是写死在前端——
+#   换一个宿主（例如系统/监控口径）只改这张表，不用动前端源码。
+slots:
+  - type: customer
+    key: customerId
+    title: 客户
+    multi: true
+    entity: true
+    picker: remote
+    pickerHint: 按名称搜索；关键字为空时给你最近在跟的几条
+    hint: 客户级意图（健康度诊断 / 拜访准备 / 流失预警）都挂在这一槽上
+  - type: contract
+    key: contractId
+    title: 合同
+    multi: true
+    entity: true
+    picker: remote
+    pickerHint: 按合同名称或编号搜索
+    hint: 续约 / 履约跟进 / 条款解释 / 风险审查依赖它
+  - type: opportunity
+    key: businessId
+    title: 商机
+    multi: true
+    entity: true
+    picker: remote
+    pickerHint: 按商机名称搜索
+    hint: 商机推进类意图（推进策略 / 报价策略 / 竞对应对）依赖它
+  - type: contact
+    key: contactId
+    title: 联系人
+    multi: true
+    entity: true
+    picker: remote
+    pickerHint: 按姓名搜索
+    hint: 上会纪要 / 决策角色 / 话术准备依赖它
+  - type: clue
+    key: clueId
+    title: 线索
+    multi: true
+    entity: true
+    picker: remote
+    pickerHint: 按线索名称搜索
+    hint: 线索质量评分 / 培育方案依赖它
+  - type: product
+    key: productId
+    title: 产品
+    multi: true
+    entity: true
+    picker: remote
+    pickerHint: 按产品名称搜索
+    hint: 组合推荐 / 价值主张依赖它
+  - type: payment
+    key: receivableId
+    title: 回款单
+    multi: true
+    entity: true
+    picker: remote
+    pickerHint: 按回款单编号搜索
+    hint: 登记了但当前 40 条意图暂未声明该上下文键（启动期会打成一条"已登记未使用"）
+  - type: timeWindow
+    key: timeWindow
+    title: 时间窗
+    multi: false
+    entity: false
+    picker: literal
+    values: ["近30天", "近90天", "近180天"]
+    hint: 修饰型槽位：不指向实体，只改变增强器与执行时的口径
+
+# 明确不算槽位的上下文键：列在这里，启动期扫描才不会把它报成"漏登记"。
+nonSlots:
+  - key: page
+    reason: 页面标识由前端按当前路由写入，不是实体，也不该进上下文栈
+
+groupFallbackTitle: 跨实体与经营分析

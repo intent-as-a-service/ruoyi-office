@@ -116,7 +116,8 @@ public class CrmIntentFactProvider implements IntentFactProvider {
                 DatasetSpec.of(DATASET_OVERDUE_RECEIVABLE_PLANS, "未回款、已逾期且到了提醒时间的回款计划",
                         Map.of("id", "回款计划编号", "period", "期数", "price", "应收金额",
                                 "returnTime", "约定回款时间", "overdueDays", "已逾期天数",
-                                "customerId", "客户编号", "contractId", "合同编号")));
+                                "customerId", "客户编号", "customerName", "客户名称",
+                                "contractId", "合同编号")));
     }
 
     @Override
@@ -346,7 +347,53 @@ public class CrmIntentFactProvider implements IntentFactProvider {
                 break;
             }
         }
+        fillCustomerNames(rows);
         return rows;
+    }
+
+    /**
+     * 给一批行补上 {@code customerName}（一次批量查询，不做 N+1）。
+     *
+     * <p><b>为什么必须有这一列</b>：事实规则只能引用数据集声明过的列。这份数据以前只有
+     * {@code customerId}，于是标题模板想写「客户「X」第 N 期回款已逾期 M 天」也写不出来，
+     * 用户看到的就只有「第 1 期回款已逾期 23 天」——<b>三条并排摆着，一个客户名都没有，
+     * 不知道该打给谁</b>。同一个系统里别的规则（如 {@code crm.customer.follow}）是带对象名的，
+     * 只有这条不带，属于口径不一致。</p>
+     *
+     * <p>取不到名字时留 null，模板侧会退化成不带客户名的写法——不编造，也不阻塞。</p>
+     */
+    private void fillCustomerNames(List<Map<String, Object>> rows) {
+        List<Long> ids = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            Long id = asLong(row.get("customerId"));
+            if (id != null && !ids.contains(id)) {
+                ids.add(id);
+            }
+        }
+        if (ids.isEmpty()) {
+            return;
+        }
+        Map<Long, String> names = new LinkedHashMap<>();
+        for (CrmCustomerDO customer : safe(customerService.getCustomerList(ids))) {
+            names.put(customer.getId(), customer.getName());
+        }
+        for (Map<String, Object> row : rows) {
+            Long id = asLong(row.get("customerId"));
+            if (id != null) {
+                row.put("customerName", names.get(id));
+            }
+        }
+    }
+
+    private static Long asLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        try {
+            return Long.valueOf(String.valueOf(value).trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     // ============================================================ helpers

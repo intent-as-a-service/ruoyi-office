@@ -1,0 +1,185 @@
+# 意图工作台 · 角色装配档案
+#
+# 同一个工作台，不同角色打开看到的东西不一样——差异在这里声明，不写在代码里。
+#
+# 选档案的规则：按下面 profiles 的书写顺序，取第一个与本人角色有交集的档案；
+# 都不命中时用 roles 为空的那份（兜底）。顺序即优先级。
+#
+# 视角（views）只能收窄角色，不能放大：生效角色 = 视角声明角色 ∩ 本人真实角色。
+# 所以「主管视角」对没有 super_admin 的人根本不出现，而不是出现后报错。
+#
+# 注意：pinnedIntents 只是「我常做的」的排序权重，不授予权限——
+# 能不能看见某条意图始终由 intent_config（上架 + 角色）与宿主权限判定说了算。
+#
+# blocks 只列**当前真的会渲染的**块。2026-09-19 左栏精简成两块
+# （命中意图 = 按意图分组的上下文命中；做过的 = 执行回执），
+# 于是原来的 today / frequent / explore 三个块名从这份配置里撤掉了——
+# 留着一个"声明了但界面上没有"的块名，和当初 `kind:'aggregate'` 是同一类毛病：
+# **配置承诺了代码不交付的东西**。
+# 角色差异现在由 views / pinnedIntents / explore.intents / presets 承担，不再靠 blocks。
+
+profiles:
+  # ------------------------------------------------------------------ 主管
+  - id: manager
+    label: 主管
+    title: 我的管理驾驶舱
+    roles: [super_admin, tenant_admin]
+    blocks: [context, todos, history]
+    defaultView: self
+    views:
+      - id: lead
+        label: 主管视角
+        roles: [super_admin, tenant_admin]
+      - id: service
+        label: 客服视角
+        roles: [common]
+    pinnedIntents:
+      - crm.team.coaching-alert
+      - crm.stats.performance-forecast
+      - crm.stats.funnel-diagnosis
+      - crm.stats.rank-coaching
+      - crm.backlog.weekly-review
+    initialSlots:
+      - type: customer
+      - type: timeWindow
+        values: ["近90天"]
+    presets:
+      - id: bid
+        label: 打单作战
+        description: 客户 + 商机 + 联系人
+        slots:
+          - type: customer
+            mode: SINGLE
+          - type: opportunity
+            mode: SET
+          - type: contact
+            mode: SET
+      - id: renewal
+        label: 续约作战
+        description: 客户 + 合同 + 近 90 天
+        slots:
+          - type: customer
+            mode: SINGLE
+          - type: contract
+            mode: SET
+          - type: timeWindow
+            mode: SINGLE
+    explore:
+      label: 团队客户体检
+      slotType: customer
+      intents:
+        - crm.customer.health-check
+        - crm.customer.churn-warning
+        - crm.contract.renewal-plan
+    emptyHint: 当前视角看不到待办。切回「我自己」会恢复完整清单。
+
+  # ------------------------------------------------------------------ 销售
+  - id: sales
+    label: 销售
+    title: 我的销售工作台
+    roles: [crm_admin]
+    blocks: [context, todos, history]
+    defaultView: self
+    views:
+      - id: sales
+        label: 销售视角
+        roles: [crm_admin]
+      - id: service
+        label: 客服视角
+        roles: [common]
+    pinnedIntents:
+      - crm.customer.health-check
+      - crm.customer.visit-prep
+      - crm.customer.followup-plan
+      - crm.business.advance-strategy
+      - crm.contract.renewal-plan
+    initialSlots:
+      - type: customer
+      - type: timeWindow
+        values: ["近90天"]
+    presets:
+      - id: bid
+        label: 打单作战
+        description: 客户 + 商机 + 联系人
+        slots:
+          - type: customer
+            mode: SINGLE
+          - type: opportunity
+            mode: SET
+          - type: contact
+            mode: SET
+      - id: renewal
+        label: 续约作战
+        description: 客户 + 合同 + 近 90 天
+        slots:
+          - type: customer
+            mode: SINGLE
+          - type: contract
+            mode: SET
+          - type: timeWindow
+            mode: SINGLE
+      - id: collection
+        label: 催收作战
+        description: 客户 + 回款单
+        slots:
+          - type: customer
+            mode: SINGLE
+          - type: payment
+            mode: SET
+    explore:
+      label: 客户池摸底
+      slotType: customer
+      intents:
+        - crm.customer.health-check
+        - crm.customer.churn-warning
+    emptyHint: 摆一个客户到上下文里，「我该办的」会跟着变。
+
+  # ------------------------------------------------------------------ 售前 / 客服 / 其它
+  - id: service
+    label: 协同
+    title: 我的协同工作台
+    roles: [common, test, test-dp, hr_admin]
+    blocks: [context, todos, history]
+    defaultView: self
+    views:
+      - id: service
+        label: 客服视角
+        roles: [common]
+    pinnedIntents:
+      - crm.customer.timeline
+      - crm.customer.churn-warning
+      - crm.contact.meeting-minutes
+      - crm.customer.followup-plan
+    initialSlots:
+      - type: customer
+      - type: timeWindow
+        values: ["近30天"]
+    presets:
+      - id: followup
+        label: 回访作战
+        description: 客户 + 联系人
+        slots:
+          - type: customer
+            mode: SINGLE
+          - type: contact
+            mode: SET
+    emptyHint: 客服的活是逐条响应，所以这里不摆批量摸底——需要时到「全部能力」里找。
+
+  # ------------------------------------------------------------------ 兜底
+  - id: default
+    label: 通用
+    title: 意图工作台
+    roles: []
+    blocks: [context, todos, history]
+    defaultView: self
+    views: []
+    pinnedIntents: []
+    initialSlots:
+      - type: customer
+    presets: []
+    explore:
+      label: 客户池摸底
+      slotType: customer
+      intents:
+        - crm.customer.health-check
+    emptyHint: 你的角色还没有专属装配，这里是通用工作台。

@@ -11,6 +11,8 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.Set;
+
 @FeignClient(name = RpcConstants.SYSTEM_NAME, primary = false) // TODO 芋艿：fallbackFactory =
 @Tag(name = "RPC 服务 - 权限")
 public interface PermissionCommonApi {
@@ -39,5 +41,10 @@ public interface PermissionCommonApi {
     @Operation(summary = "获得登陆用户的部门数据权限")
     @Parameter(name = "userId", description = "用户编号", example = "2", required = true)
     CommonResult<DeptDataPermissionRespDTO> getDeptDataPermission(@RequestParam("userId") Long userId);
+
+    @GetMapping(PREFIX + "/user-role-code-list")
+    @Operation(summary = "获得用户的角色编码集合")
+    @Parameter(name = "userId", description = "用户编号", example = "1", required = true)
+    CommonResult<Set<String>> getUserRoleCodeList(@RequestParam("userId") Long userId);
 
 }

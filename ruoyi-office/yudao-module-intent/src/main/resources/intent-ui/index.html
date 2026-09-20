@@ -3,86 +3,76 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>客户管理 · 智能操作演示 — 内嵌 AI 意图 SDK</title>
-  <link rel="stylesheet" href="css/intent-ui.css">
-  <style>
-    body { margin: 0; font-family: var(--iui-font); background: var(--iui-bg); color: var(--iui-text); }
-    .app-header { background: #fff; border-bottom: 1px solid var(--iui-border); padding: 0 24px;
-      height: 52px; display: flex; align-items: center; gap: 16px; }
-    .app-logo { font-weight: 800; font-size: 15px; letter-spacing: .02em; }
-    .app-logo span { color: var(--iui-primary); }
-    .app-crumb { font-size: 12.5px; color: var(--iui-text-3); }
-    .app-user { margin-left: auto; font-size: 12.5px; color: var(--iui-text-2); }
-    .layout { display: grid; grid-template-columns: 1fr 380px; gap: 16px; padding: 16px 24px; max-width: 1440px; margin: 0 auto; }
-    .pane { background: #fff; border: 1px solid var(--iui-border); border-radius: var(--iui-radius); overflow: hidden; }
-    .pane-head { padding: 14px 18px; border-bottom: 1px solid var(--iui-border); font-weight: 700; font-size: 14px;
-      display: flex; align-items: center; justify-content: space-between; }
-    .pane-head small { font-weight: 400; color: var(--iui-text-3); font-size: 12px; }
-    table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .grid th { text-align: left; padding: 10px 14px; background: #fafbfc; color: var(--iui-text-2);
-      font-weight: 600; font-size: 12px; border-bottom: 1px solid var(--iui-border); }
-    .grid td { padding: 11px 14px; border-bottom: 1px solid #f1f2f4; color: var(--iui-text-2); }
-    .grid tr.row { cursor: pointer; transition: background .12s; }
-    .grid tr.row:hover { background: var(--iui-primary-weak); }
-    .grid tr.row.active { background: var(--iui-primary-weak); }
-    .grid tr.row.active td:first-child { box-shadow: inset 3px 0 0 var(--iui-primary); }
-    .pill { padding: 2px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
-    .pill.g { background: var(--iui-success-weak); color: var(--iui-success); }
-    .pill.n { background: var(--iui-bg); color: var(--iui-text-3); }
-    .pill.b { background: var(--iui-primary-weak); color: var(--iui-primary); }
-    #intent-panel { padding: 16px; min-height: 400px; }
-    .ctx-tip { margin: 0 16px 10px; padding: 9px 12px; border-radius: 8px; background: var(--iui-bg);
-      font-size: 12px; color: var(--iui-text-2); display: flex; align-items: center; gap: 6px; }
-    .ctx-tip b { color: var(--iui-text); }
-    .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; background:
-      radial-gradient(1200px 600px at 20% -10%, #e8efff 0%, var(--iui-bg) 55%); }
-    .login-card { width: 400px; background: #fff; border-radius: 16px; box-shadow: var(--iui-shadow-lg); padding: 36px; }
-    .login-card h1 { font-size: 20px; margin: 0 0 6px; }
-    .login-card p.sub { margin: 0 0 24px; font-size: 13px; color: var(--iui-text-3); }
-    .login-card .iui-field { margin-bottom: 14px; }
-    .login-err { margin-bottom: 12px; }
-    .foot-note { text-align: center; font-size: 11.5px; color: var(--iui-text-3); margin-top: 18px; line-height: 1.8; }
-    @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
-  </style>
+  <title>意图工作台 · ruoyi-office</title>
+  <link rel="stylesheet" href="css/workbench.css">
 </head>
 <body>
-  <!-- 登录视图 -->
-  <div id="login-view" class="login-wrap" style="display:none">
-    <div class="login-card">
-      <h1>客户管理 · 智能操作</h1>
-      <p class="sub">内嵌 AI 意图 SDK 演示 — 使用宿主系统账号登录</p>
-      <div class="iui-form-err login-err" id="login-err"></div>
-      <div class="iui-field"><label>账号</label><input id="login-username" value="admin" autocomplete="username"></div>
-      <div class="iui-field"><label>密码</label><input id="login-password" type="password" value="admin123" autocomplete="current-password"></div>
-      <button class="iui-btn-primary" id="login-btn" style="width:100%;margin-top:6px">登 录</button>
-      <div class="foot-note">登录态与租户隔离均沿用宿主系统（yudao security / tenant）<br>演示账号来自 ruoyi-office 基础库</div>
-    </div>
-  </div>
+<!--
+  意图工作台（宿主页面，零构建）
 
-  <!-- 应用视图 -->
-  <div id="app-view" style="display:none">
-    <div class="app-header">
-      <span class="app-logo">RUOYI <span>OFFICE</span></span>
-      <span class="app-crumb">CRM / 客户管理 / 销售工作台</span>
-      <span class="app-user" id="app-user"></span>
+  与旧形态的区别：这里<b>没有浮球</b>，也没有"某个业务页面的侧边栏"。
+  它是一个独立入口，左侧是「用户真正想做什么」的六块，右侧是执行流。
+  取代浮球的四个入口：顶栏常驻（本站） + ⌘K 命令面板 + 业务页「送到工作台」+ 待办深链。
+-->
+<div class="screen">
+
+  <div class="topbar">
+    <div class="brand"><span class="logo">RC</span><span id="brand-name">企业管理一体化平台</span></div>
+    <div class="nav">
+      <span>工作台</span><span>流程中心</span><span>OA协同办公</span><span>人力资源管理</span>
+      <span class="on">意图工作台 <b class="navbadge" id="nav-badge" hidden>0</b></span>
     </div>
-    <div class="layout">
-      <div class="pane">
-        <div class="pane-head">客户列表 <small id="list-meta"></small></div>
-        <table class="grid">
-          <thead><tr><th style="width:30%">客户名称</th><th>等级</th><th>成交</th><th>最后跟进</th><th>来源</th></tr></thead>
-          <tbody id="customer-rows"></tbody>
-        </table>
+    <div class="top-right">
+      <div class="viewswitch" id="view-switch" title="视角只能收窄你能做的事，不会放大">
+        <span class="vt">视角</span><span id="view-label">我自己</span><span class="caret">▾</span>
+        <div class="vmenu" id="view-menu" hidden></div>
       </div>
-      <div class="pane">
-        <div class="pane-head">智能操作面板 <small id="gateway-status"></small></div>
-        <div class="ctx-tip">📌 上下文来源：<b id="ctx-customer">未选择客户（请在左侧点击选择）</b><span id="ctx-page" style="margin-left:auto;color:var(--iui-text-3)">page=crm/customer</span></div>
-        <div id="intent-panel"></div>
+      <div class="cmdk" id="cmdk-open" data-act="open-palette">
+        <span>搜索意图、对象，或直接说一句…</span><span class="kbd">Ctrl K</span>
+      </div>
+      <div class="userswitch" id="user-switch" title="当前账号：换个账号就是换一份装配">
+        <div class="avatar" id="avatar">·</div>
+        <div class="umenu" id="user-menu" hidden></div>
       </div>
     </div>
   </div>
 
-  <script src="js/intent-ui-sdk.js"></script>
-  <script src="js/demo-app.js"></script>
+  <!--
+    上下文通栏（横跨整页）。
+    为什么从"左栏顶部 + 右栏快照"两处合并到这里：它同时驱动左栏（能用什么）与右栏（跑出什么），
+    本来就属于"整个工作台的状态"，不是某一栏的子块；分开放还会出现两份一模一样的上下文
+    ——左栏写「时间窗 近90天」、右栏写「时间窗 = 近90天」，用户看到的是同一件事说两遍。
+  -->
+  <div class="ctxbar" id="ctxbar"></div>
+
+  <div class="body">
+    <div class="left" id="left">
+      <div class="loading">加载中…</div>
+    </div>
+
+    <!--
+      中间区 = 意图网络。
+      它回答的是"做完接着做什么"，与左栏的"现在做什么"是两个问题、两条轴：
+      左栏的一行是**事项**，网络的一个节点是**能力**；两者靠 `intentId` 投影连接，
+      界面上靠"两边写同一个意图名 + 焦点同步高亮"让这条投影看得见。
+
+      原来这里是执行流。执行流没有丢，它被收进了右侧抽屉（#gdrawer）——
+      抽屉与网络是**并列**的（不是浮层遮住图）：打开时网络自己收窄，列距跟着变。
+      关掉抽屉时，中间 100% 是网络。
+    -->
+    <div class="graph" id="graph">
+      <div class="ghead" id="ghead"></div>
+      <div class="gbody">
+        <div class="gcanvas" id="gcanvas"></div>
+        <div class="gdrawer" id="gdrawer"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script type="module" src="js/workbench.js"></script>
 </body>
 </html>

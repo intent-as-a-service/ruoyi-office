@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>意图工作台 · 免登录预览（视觉验收用）</title>
+  <link rel="stylesheet" href="css/workbench.css">
+  <style>
+    /* 预览页自己的提示条：说清这是假数据，别让人以为连上了真系统 */
+    .preview-note { background: #1F2733; color: #E6E9F0; font-size: 12px; padding: 6px 16px; }
+    .preview-note b { color: #FBBF24; }
+    .preview-note span { color: #98A2B3; }
+  </style>
+</head>
+<body>
+<!--
+  意图工作台 · 免登录预览页
+  ============================================================================
+  用途：**视觉验收**。工作台是零构建页面，没有编译期；而"首屏有没有重点、
+  一眼能不能看出该做什么"这类判断只靠断言验不了，必须有人看。
+
+  这个页面用 mountWorkbench 的 `fetcher` 注入口灌一份**假数据**（不连后端、不需要登录），
+  所以任何人打开 http://127.0.0.1:48080/intent-ui/preview.html 就能看到真实渲染结果。
+
+  它同时是 `fetcher` 配置项的活样例：宿主用自己的 HTTP 客户端时，接法就是在这一行。
+-->
+<div class="preview-note">
+  <b>预览模式</b> · 数据是假的（fixture），用于看版式与信息层级 ·
+  <span>真实页面在 <a href="./" style="color:#93C5FD;">/intent-ui/</a>（需登录 admin / admin123）</span>
+</div>
+<div class="screen">
+  <div class="topbar">
+    <div class="brand"><span class="logo">RC</span><span id="brand-name">企业管理一体化平台</span></div>
+    <div class="nav">
+      <span>工作台</span><span>流程中心</span><span>OA协同办公</span><span>人力资源管理</span>
+      <span class="on">意图工作台 <b class="navbadge" id="nav-badge" hidden>0</b></span>
+    </div>
+    <div class="top-right">
+      <div class="viewswitch" id="view-switch">
+        <span class="vt">视角</span><span id="view-label">我自己</span><span class="caret">▾</span>
+        <div class="vmenu" id="view-menu" hidden></div>
+      </div>
+      <div class="cmdk" id="cmdk-open" data-act="open-palette">
+        <span>搜索意图、对象，或直接说一句…</span><span class="kbd">Ctrl K</span>
+      </div>
+      <div class="userswitch" id="user-switch">
+        <div class="avatar" id="avatar">·</div>
+        <div class="umenu" id="user-menu" hidden></div>
+      </div>
+    </div>
+  </div>
+  <!-- 工作台本体（上下文通栏 + 左导航面板 + 中间意图网络）由 mountWorkbench 建，跟宿主接入方式一致 -->
+  <div id="wb"></div>
+</div>
+<div class="overlay" id="overlay" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script type="module">
+import { mountWorkbench } from './js/workbench.js';
+
+const SLOT_TYPES = [
+  { type: 'customer', key: 'customerId', title: '客户', entity: true, multi: true, picker: 'remote', hasCandidates: true, pickerHint: '按名称搜索；关键字为空时给你最近在跟的几条' },
+  { type: 'contract', key: 'contractId', title: '合同', entity: true, multi: true, picker: 'remote', hasCandidates: true, pickerHint: '按合同名称或编号搜索' },
+  { type: 'opportunity', key: 'businessId', title: '商机', entity: true, multi: true, picker: 'remote', hasCandidates: true, pickerHint: '按商机名称搜索' },
+  { type: 'contact', key: 'contactId', title: '联系人', entity: true, multi: true, picker: 'remote', hasCandidates: true, pickerHint: '按姓名搜索' },
+  { type: 'payment', key: 'receivableId', title: '回款单', entity: true, multi: true, picker: 'remote', hasCandidates: true, pickerHint: '按回款单编号搜索' },
+  { type: 'timeWindow', key: 'timeWindow', title: '时间窗', entity: false, multi: false, picker: 'literal', values: ['近30天', '近90天', '近180天'] },
+];
+
+const ME = {
+  userId: 1, name: '管理员', roles: ['super_admin'], systemName: '企业管理一体化平台',
+  groupFallbackTitle: '跨实体与经营分析',
+  views: [{ id: 'self', label: '我自己', roles: [] }, { id: 'lead', label: '主管视角', roles: ['super_admin'] }],
+  defaultView: 'self', slotTypes: SLOT_TYPES,
+  profile: {
+    id: 'manager', label: '主管', title: '我的管理驾驶舱',
+    blocks: ['context', 'today', 'todos', 'frequent', 'explore', 'history'],
+    pinnedIntents: ['crm.customer.health-check', 'crm.customer.visit-prep'],
+    initialSlots: [
+      // 带上客户与时间窗：折叠态那一行 chip 才有东西可显示（真实页面里由业务页"送到工作台"带入）
+      { type: 'customer', values: ['326'] },
+      { type: 'timeWindow', values: ['近90天'] },
+    ],
+    presets: [
+      { id: 'bid', label: '打单作战', description: '客户 + 商机 + 联系人' },
+      { id: 'renewal', label: '续约作战', description: '客户 + 合同 + 近 90 天' },
+    ],
+    explore: { label: '团队客户体检', intents: ['crm.customer.health-check', 'crm.customer.churn-warning'] },
+    emptyHint: '当前视角看不到待办。切回「我自己」会恢复完整清单。',
+  },
+};
+
+const E = (id, name, ctx, executorType) => ({ id, name, context: ctx, executorType });
+const CUST = [{ key: 'customerId', title: '客户', required: true }];
+
+const ENTRIES = [
+  // 名字照抄生产库：主角卡的谓语用的就是这里的 name（宿主里它们本来就是动词短语）
+  E('crm.receivable.overdue-warning', '逾期风险预警', CUST, 'agent'),
+  E('crm.customer.health-check', '客户健康度诊断', CUST, 'agent'),
+  E('crm.customer.visit-prep', '拜访准备', CUST, 'agent'),
+  E('crm.customer.churn-warning', '客户流失预警', CUST, 'agent'),
+  E('crm.customer.followup-plan', '生成跟进方案', CUST, 'agent'),
+  E('crm.contract.renewal-plan', '续约策略', [{ key: 'contractId', title: '合同', required: true }], 'agent'),
+  E('crm.contract.audit-precheck', '合同审批预检', [{ key: 'contractId', title: '合同', required: true }], 'skill'),
+  E('crm.contract.risk-review', '合同风险审查', CUST, 'agent'),
+  E('crm.business.advance-strategy', '商机推进策略', [{ key: 'businessId', title: '商机', required: true }], 'agent'),
+  E('crm.clue.quality-score', '线索质量评分', [{ key: 'clueId', title: '线索', required: true }], 'skill'),
+  E('crm.contact.meeting-minutes', '上会纪要整理', [{ key: 'contactId', title: '联系人', required: true }], 'agent'),
+  E('crm.payment.collection-plan', '催收计划', [{ key: 'receivableId', title: '回款单', required: true }], 'agent'),
+  E('crm.backlog.today-priority', '今日跟进优先级', [], 'agent'),
+  E('crm.stats.funnel-diagnosis', '漏斗诊断', [], 'agent'),
+  E('crm.team.coaching-alert', '团队辅导预警', [], 'skill'),
+];
+
+const S = (id, intentId, title, subtitle, reason, params) =>
+  ({ id, intentId, title, subtitle, reason, kind: 'item', count: 1, params });
+
+/**
+ * 这份 fixture 照抄 **2026-09-19 生产实例的真实返回形状**：
+ *   · 标题里带对象名（`客户「X」第 N 期回款已逾期 M 天`）—— 这是规则模板补了 customerName 之后的样子；
+ *   · 副标题里带金额（`应收 155,200.00 元 · 约定 2026-08-27`）；
+ *   · params 里带对象 id（客户 326 上挂着两期逾期、客户 320 上挂着"逾期 + 待跟进"两条跨意图信号）。
+ * 数字全部取自生产库，没有编造。
+ */
+const SUGGESTIONS = [
+  S('s1', 'crm.receivable.overdue-warning',
+    '客户「金辉电子科技有限公司」第 1 期回款已逾期 23 天',
+    '应收 155,200.00 元 · 约定 2026-08-27', '逾期未回款，建议按分级动作尽快催收', { customerId: '326' }),
+  S('s2', 'crm.receivable.overdue-warning',
+    '客户「金辉电子科技有限公司」第 1 期回款已逾期 11 天',
+    '应收 36,000.00 元 · 约定 2026-09-08', '逾期未回款，建议按分级动作尽快催收', { customerId: '326' }),
+  S('s3', 'crm.receivable.overdue-warning',
+    '客户「天诚智慧物流园区」第 1 期回款已逾期 17 天',
+    '应收 130,000.00 元 · 约定 2026-09-02', '逾期未回款，建议按分级动作尽快催收', { customerId: '322' }),
+  S('s4', 'crm.receivable.overdue-warning',
+    '客户「百味食品加工有限公司」第 1 期回款已逾期 8 天',
+    '应收 71,250.00 元 · 约定 2026-09-11', '逾期未回款，建议按分级动作尽快催收', { customerId: '328' }),
+  S('s5', 'crm.receivable.overdue-warning',
+    '客户「宏图建筑设计院有限公司」第 1 期回款已逾期 2 天',
+    '应收 12,000.00 元 · 约定 2026-09-17', '逾期未回款，建议按分级动作尽快催收', { customerId: '320' }),
+  S('s6', 'crm.customer.health-check',
+    '客户「宏图建筑设计院有限公司」待跟进',
+    '上次联系 2026-08-24', '分配给我的客户还没完成跟进，建议先做一次健康度诊断再动身', { customerId: '320' }),
+  S('s7', 'crm.contract.audit-precheck',
+    '合同「盛世传媒项目协作平台合同」等待审批',
+    '编号 HT-2026-0404 · 金额 90,000.00 元', '需要我处理的审批，建议先跑一遍审批预检再点通过', { contractId: '396' }),
+  S('s8', 'crm.business.advance-strategy',
+    '商机「朗润医疗·进销存管理」已停滞 46 天',
+    '商机金额 80,000.00 元', '商机长期没有推进动作，建议先判断卡点再定推进策略', { businessId: '370' }),
+  S('s9', 'crm.customer.health-check',
+    '客户「蓝海连锁便利有限公司」待跟进',
+    '上次联系 2026-08-27', '分配给我的客户还没完成跟进', { customerId: '321' }),
+  { id: 'a1', intentId: 'crm.backlog.today-priority', title: '今日跟进优先级', kind: 'aggregate', count: 12 },
+];
+
+/**
+ * 最新一条带上**完整的结果信封**——形状照抄生产实例的 `output`
+ * （title / summary / blocks[kv|table|list|text]），用来验收结果卡的视觉改版：
+ *   摘要 → 结论；kv → 指标卡；table → 行动卡；text → 段落/列表。
+ */
+const LATEST_OUTPUT = {
+  title: '今日跟进优先级',
+  summary: '今天排在最前面的是金辉电子科技有限公司：2 期回款逾期共 19.12 万，已逾期 23 天且 38 天没有联系；'
+    + '另有 1 份合同即将到期、2 份合同待你审批。建议先处理逾期回款与合同节点，再做客户与线索触达。',
+  blocks: [
+    { kind: 'kv', title: '今日待办总览', items: [
+      { label: '回款计划逾期', value: '5 笔' },
+      { label: '待跟进客户', value: '5 位' },
+      { label: '待跟进线索', value: '3 条' },
+      { label: '合同待审核', value: '2 份' },
+      { label: '合同即将到期', value: '1 份' },
+      { label: '回款待审核', value: '1 笔' },
+      { label: '今日需联系客户', value: '0' },
+      { label: '客户待进公海', value: '0' },
+    ] },
+    { kind: 'table', title: '今天先做的 5 件事',
+      columns: ['优先级', '对象', '具体动作', '为什么现在做', '预计耗时'],
+      rows: [
+        ['1', '逾期回款计划 5 笔', '逐笔调出对应合同与客户，按逾期天数从长到短电话催收并确认到账日期',
+          '回款计划已逾期 5 笔，是当前唯一直接压在资金上的事项，拖一天就多一天账期风险', '约 45 分钟'],
+        ['2', '即将到期合同 1 份', '确认到期日与客户续约意向，当天发起续约沟通并锁定报价口径',
+          '合同只剩 1 份即将到期，时间窗口最窄，续约一旦错过只能按新签处理', '约 30 分钟'],
+        ['3', '待审核合同 2 份', '核对金额、折扣、账期、签约主体与条款一致性后给出通过或补充意见',
+          '2 份合同卡在我这里，未审就没法进入签约与回款环节', '约 30 分钟'],
+        ['4', '待审核回款 1 笔', '核对到账凭证与对应合同，确认后完成入账核销',
+          '不核销则回款计划与合同履约进度都对不上', '约 15 分钟'],
+      ] },
+    { kind: 'text', title: '待跟进线索明细',
+      text: '线索·盛世广告传媒（L3）：距上次联系 15 天，需求模糊，培育中 —— 最久未联系，优先唤醒\n'
+        + '线索·百味食品加工（L3）：距上次联系 11 天，已索取报价单 —— 已进入报价，需强化跟进' },
+  ],
+  // 字段名是 nextIntents（驼峰）。前端曾写成全小写，导致这块一直没渲染出来——这里照生产的形状给。
+  nextIntents: [
+    { intentId: 'crm.customer.health-check', title: '客户健康度诊断（金辉电子科技）', reason: '38 天未联系，先做一次健康度诊断再决定动作', params: { customerId: '326' } },
+    { intentId: 'crm.contract.audit-precheck', title: '合同审批预检（HT-2026-0404）', reason: '2 份合同卡在我这里，未审就进不了签约与回款', params: { contractId: '396' } },
+    { intentId: 'crm.business.advance-strategy', title: '商机推进策略（朗润医疗）', reason: '该商机已停滞 46 天', params: { businessId: '370' } },
+  ],
+  followups: ['把话术改得更正式一些'],
+};
+
+const RUNS = [
+  // 起点：跑完它之后建议了「逾期风险预警」——下面 t-1 就是跟着这条建议去跑的，
+  // 所以那一跳在网络上会画成**走过的**（事实），而不是虚线（建议）。
+  { traceId: 't-0', intentId: 'crm.backlog.today-priority', intentName: '今日跟进优先级', status: 'SUCCESS',
+    startedAt: Date.now() - 6 * 60000, durationMs: 16000, usage: { totalTokens: 5200 }, params: {}, contextSnapshot: { _slots: [] },
+    output: { title: '今日跟进优先级', summary: '今天最该先办的是逾期回款。', blocks: [],
+      nextIntents: [{ intentId: 'crm.receivable.overdue-warning', title: '逾期风险预警', reason: '有 5 条回款计划逾期，需要按逾期天数分级动作' }] } },
+  { traceId: 't-1', intentId: 'crm.receivable.overdue-warning', intentName: '逾期风险预警', status: 'SUCCESS', startedAt: Date.now() - 23 * 1000, durationMs: 23000, usage: { totalTokens: 7000 }, params: { customerId: '326' },
+    // ★ `_from` = 这次是跟着哪条建议跑的。有它，网络上那一跳才会画成**走过的**（事实），
+    // 而不是**建议过的**（虚线）。这就是闭环的形状。
+    // 生产里由「下一步」胶囊执行时自动写入（见 workbench.js 的 runIntent）。
+    contextSnapshot: { _slots: [{ key: 'customerId', label: '金辉电子科技有限公司' }], _from: { intentId: 'crm.backlog.today-priority', traceId: 't-0', kind: 'nextIntent' } },
+    output: LATEST_OUTPUT },
+  { traceId: 't-2', intentId: 'crm.receivable.overdue-warning', intentName: '逾期风险预警', status: 'SUCCESS', startedAt: Date.now() - 4 * 60000, durationMs: 29000, usage: { totalTokens: 11000 }, params: { customerId: '322' }, contextSnapshot: { _slots: [] }, output: LATEST_OUTPUT },
+  { traceId: 't-3', intentId: 'crm.receivable.overdue-warning', intentName: '逾期风险预警', status: 'SUCCESS', startedAt: Date.now() - 9 * 60000, durationMs: 26000, usage: { totalTokens: 9800 }, params: { customerId: '328' }, contextSnapshot: { _slots: [] }, output: LATEST_OUTPUT },
+  // 三条失败：演示"没跑成"单独成组（真实截图里是配置模型密钥之前的脏记录）
+  { traceId: 'f-1', intentId: 'crm.receivable.overdue-warning', intentName: '逾期风险预警', status: 'FAILED', startedAt: Date.now() - 26 * 60000, durationMs: 48, error: { code: 'LLM_ERROR', message: 'No API key for provider: deepseek' }, params: {}, contextSnapshot: { _slots: [] } },
+  { traceId: 'f-2', intentId: 'crm.receivable.overdue-warning', intentName: '逾期风险预警', status: 'FAILED', startedAt: Date.now() - 31 * 60000, durationMs: 44, error: { code: 'LLM_ERROR', message: 'No API key for provider: deepseek' }, params: {}, contextSnapshot: { _slots: [] } },
+  { traceId: 'f-3', intentId: 'crm.receivable.overdue-warning', intentName: '逾期风险预警', status: 'FAILED', startedAt: Date.now() - 37 * 60000, durationMs: 51, error: { code: 'LLM_ERROR', message: 'No API key for provider: deepseek' }, params: {}, contextSnapshot: { _slots: [] } },
+  { traceId: 't-4', intentId: 'crm.customer.health-check', intentName: '客户健康度诊断', status: 'SUCCESS', startedAt: Date.now() - 95 * 60000, durationMs: 18400, usage: { totalTokens: 8100 }, params: { customerId: '320' }, contextSnapshot: { _slots: [{ key: 'customerId', label: '宏图建筑设计院有限公司' }] },
+    output: { title: '客户健康度诊断', summary: '宏图建筑设计院有限公司 62/100，评级「关注」：跟进频次偏低，商机集中度高。',
+      blocks: [
+        { kind: 'kv', title: '八维评分', items: [
+          { label: '跟进频次', value: '48' }, { label: '商机健康', value: '71' },
+          { label: '回款表现', value: '80' }, { label: '综合', value: '62' }] },
+        { kind: 'list', title: '改进项', items: [
+          { label: '补一次上门拜访', value: '30 天内' },
+          { label: '扩品', value: '在手商机仅 1 个，建议从「智慧工地」需求切入' },
+          { label: '降低单点依赖', value: '建立第二联系人' }] },
+      ] } },
+];
+
+const CANDIDATES = [
+  { id: '326', name: '金辉电子科技有限公司', meta: 'A（重点客户）· 电子科技' },
+  { id: '322', name: '天诚智慧物流园区', meta: 'B（普通客户）· 物流园区' },
+  { id: '328', name: '百味食品加工有限公司', meta: 'C（普通客户）· 食品加工' },
+  { id: '320', name: '宏图建筑设计院有限公司', meta: 'A（重点客户）· 房地产' },
+  { id: '318', name: '云启信息技术有限公司', meta: 'B（普通客户）· 信息技术' },
+  { id: '301', name: '恒信消防科技有限公司', meta: 'B（普通客户）· 消防工程' },
+  { id: '12', name: '宏图建筑设计院（历史归档）', meta: '已归档' },
+  { id: '410', name: '朗润医疗科技有限公司', meta: 'A（重点客户）· 医疗器械' },
+  { id: '512', name: '盛世传媒文化有限公司', meta: 'B（普通客户）· 文化传媒' },
+];
+
+/** 假请求器：按路径路由到 fixture。这就是宿主注入自己 HTTP 客户端的位置。 */
+async function fixtureFetcher(path, { method, body } = {}) {
+  const url = new URL(path, 'http://fixture.local');
+  const p = url.pathname;
+  const q = url.searchParams;
+  if (p.endsWith('/intent/me')) return ME;
+  if (p.endsWith('/intent/runs')) return RUNS;
+  if (p.endsWith('/intent/catalog')) return { systemName: ME.systemName, gatewayStatus: 'ENABLED', entries: ENTRIES, suggestions: SUGGESTIONS, issues: [] };
+  if (p.endsWith('/intent/slots/resolve')) {
+    // 契约是按 type 索引（一个类型只回一个），所以这里回的条数与请求里出现的类型数一致
+    const requested = Array.isArray(body) ? body : [];
+    const out = {};
+    for (const ref of requested) {
+      const hit = CANDIDATES.find((c) => c.id === String(ref.id)) ?? CANDIDATES[0];
+      out[ref.type] = { type: ref.type, id: String(ref.id), name: hit.name, accessible: true };
+    }
+    return out;
+  }
+  if (p.endsWith('/intent/slots/candidates')) {
+    const keyword = (q.get('keyword') || '').trim();
+    const hit = keyword ? CANDIDATES.filter((c) => c.name.includes(keyword)) : CANDIDATES;
+    const limit = Number(q.get('limit') || 10);
+    const page = Number(q.get('cursor') || 1);
+    const slice = hit.slice((page - 1) * limit, page * limit);
+    return { items: slice, nextCursor: page * limit < hit.length ? String(page + 1) : null, total: hit.length };
+  }
+  if (p.endsWith('/intent/execute')) {
+    await new Promise((r) => setTimeout(r, 900));
+    return {
+      traceId: `preview-${Date.now()}`, intentId: 'preview', status: 'SUCCESS', durationMs: 900,
+      executorType: 'agent', usage: { inputTokens: 6200, outputTokens: 1800, totalTokens: 8000 },
+      steps: [
+        { tool: 'crm_get_customer', argsSummary: 'customerId=320', resultSummary: '命中 1 条', ok: true, durationMs: 42 },
+        { tool: 'crm_customer_facts', argsSummary: 'customerId=320', resultSummary: '在手商机 1 / 合同 3 / 回款 0', ok: true, durationMs: 118 },
+      ],
+      output: {
+        title: '客户健康度诊断',
+        summary: '宏图建筑设计院有限公司 62/100，评级「关注」：跟进频次偏低，商机集中度高。',
+        blocks: [
+          { kind: 'kv', title: '八维评分', items: [{ label: '跟进频次', value: '48' }, { label: '商机健康', value: '71' }, { label: '回款表现', value: '80' }, { label: '综合', value: '62' }] },
+          { kind: 'text', title: '改进项（3）', text: '1. 30 天内补一次上门拜访；\n2. 在手商机仅 1 个，建议从「智慧工地」需求切入扩品；\n3. 建立第二联系人，降低单点依赖。' },
+        ],
+        followups: ['再改一版：语气更正式一些'],
+        // 生产信封里意图名是 title（不是 name）——fixture 必须跟生产同形状，
+        // 否则预览页会渲染成裸 intentId，看着像 bug 其实只是假数据写错了字段
+        nextIntents: [{ intentId: 'crm.contract.renewal-plan', title: '续约策略', reason: '这份合同还有 45 天到期' }],
+      },
+    };
+  }
+  return null;
+}
+
+mountWorkbench({ container: '#wb', token: 'preview-token', fetcher: fixtureFetcher });
+</script>
+</body>
+</html>

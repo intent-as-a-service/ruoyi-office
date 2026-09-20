@@ -16,7 +16,9 @@
     level: danger
   items:
     limit: 5
-    title: "第 {{row.period}} 期回款已逾期 {{row.overdueDays | days}} 天"
+    # 标题必须带客户名：这是唯一能回答"该打给谁"的位置。
+    # 以前只有「第 1 期回款已逾期 23 天」，三条并排摆着不知道是哪个客户（见首屏再设计 §2 建议一）。
+    title: "客户「{{row.customerName}}」第 {{row.period}} 期回款已逾期 {{row.overdueDays | days}} 天"
     subtitle: "应收 {{row.price | money}} 元 · 约定 {{row.returnTime | date}}"
     reason: "逾期未回款，建议按分级动作尽快催收"
     params:

@@ -7,6 +7,10 @@
 *.log
 logs/
 
+# 本地密钥（DEEPSEEK_API_KEY 等）。start-dev.ps1 会自动加载；**绝不入库**。
+.env.local.ps1
+.env.local
+
 # 编辑器 / 系统
 .idea/
 .vscode/

@@ -71,5 +71,12 @@
             <artifactId>yudao-module-system-api</artifactId>
             <version>${revision}</version>
         </dependency>
+
+        <!-- 单元测试：MockMvc 契约测试（不启 Spring 上下文，不需要 DB / Redis） -->
+        <dependency>
+            <groupId>cn.iocoder.cloud</groupId>
+            <artifactId>yudao-spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

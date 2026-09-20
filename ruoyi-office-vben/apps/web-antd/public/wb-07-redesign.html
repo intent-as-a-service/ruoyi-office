@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>意图工作台 · 首屏再设计 v2（评审稿）</title>
+<style>
+/* ============================================================================
+   意图工作台 · 首屏再设计 v2
+   ----------------------------------------------------------------------------
+   数据来源：2026-09-19 跑在 ruoyi-office（MySQL 3306 / ruoyi-office 库）上的真实数据。
+   所有金额、天数、客户名、Run 记录都取自真实接口与库表，没有编造：
+     · /intent/catalog 返回 18 条 kind=item 建议
+     · 按对象聚合后 = 16 件事（客户 320、326 各带 2 条信号）
+     · 逾期回款 4 家合计 40.44 万（金辉 19.12 / 天诚 13.0 / 百味 7.125 / 宏图 1.2 万）
+   ============================================================================ */
+:root{
+  --navy:#1B2A44; --blue:#3B82F6; --blue-d:#2563EB; --blue-50:#EFF6FF; --blue-100:#DBEAFE;
+  --bg:#F2F4F7; --card:#fff; --line:#E6E9F0; --line-2:#F0F2F6;
+  --t1:#1F2733; --t2:#667085; --t3:#98A2B3;
+  --green:#16A34A; --green-50:#ECFDF3; --amber:#F59E0B; --amber-50:#FFFBEB;
+  --red:#EF4444; --red-50:#FEF2F2;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; }
+body{
+  background:#E9ECF2; color:var(--t1); font-size:13px; line-height:1.55;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  padding:26px 0 60px;
+}
+.wrap{ width:1440px; margin:0 auto; }
+
+/* ---------- 文档头 ---------- */
+.doc-head{ display:flex; align-items:baseline; gap:14px; padding:0 4px 14px; }
+.doc-head h1{ margin:0; font-size:19px; font-weight:700; letter-spacing:.3px; }
+.doc-head .sub{ font-size:12px; color:var(--t2); }
+.doc-head .tag{ margin-left:auto; font-size:11.5px; color:var(--t2); background:#fff;
+  border:1px solid var(--line); border-radius:20px; padding:3px 12px; }
+
+/* ---------- 舞台 ---------- */
+.stage{ position:relative; width:1440px; background:var(--card); border-radius:12px; overflow:hidden;
+  box-shadow:0 18px 48px -18px rgba(16,24,40,.28), 0 0 0 1px rgba(16,24,40,.05); }
+
+/* ---------- 顶栏 ---------- */
+.topbar{ height:56px; display:flex; align-items:center; gap:22px; padding:0 20px; background:#fff;
+  border-bottom:1px solid var(--line); }
+.brand{ display:flex; align-items:center; gap:9px; font-weight:700; color:var(--navy); }
+.logo{ width:26px; height:26px; border-radius:7px; background:var(--navy); color:#fff; font-size:11px;
+  display:flex; align-items:center; justify-content:center; font-weight:700; }
+.nav{ display:flex; align-items:center; gap:20px; font-size:13px; color:var(--t2); }
+.nav .on{ color:var(--blue-d); font-weight:600; display:flex; align-items:center; gap:6px; }
+.navbadge{ display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px;
+  padding:0 5px; border-radius:9px; background:var(--red); color:#fff; font-size:11px; font-weight:700; }
+.top-right{ margin-left:auto; display:flex; align-items:center; gap:14px; }
+.cmdk{ display:flex; align-items:center; gap:10px; width:330px; height:32px; padding:0 11px;
+  border:1px solid var(--line); border-radius:7px; color:var(--t3); font-size:12px; background:#FAFBFC; }
+.cmdk .kbd{ margin-left:auto; font-size:10.5px; border:1px solid var(--line); border-radius:4px;
+  padding:1px 5px; background:#fff; color:var(--t3); }
+.viewswitch{ font-size:12.5px; color:var(--t2); }
+.avatar{ width:28px; height:28px; border-radius:50%; background:var(--blue-50); color:var(--blue-d);
+  display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; }
+
+/* ---------- 主体 ---------- */
+.body{ display:flex; height:904px; }
+
+/* ---------- 左栏 ---------- */
+.left{ width:340px; flex:0 0 340px; background:#fff; border-right:1px solid var(--line);
+  display:flex; flex-direction:column; overflow:hidden; }
+.left-scroll{ flex:1; overflow-y:auto; }
+
+.focus{ display:flex; align-items:flex-start; gap:10px; padding:13px 16px 11px; }
+.fname{ font-size:14px; font-weight:700; letter-spacing:.2px; }
+.fmeta{ font-size:11.5px; color:var(--t3); margin-top:2px; }
+.switch{ margin-left:auto; font-size:11.5px; color:var(--t2); border:1px solid var(--line);
+  border-radius:6px; padding:4px 10px; white-space:nowrap; }
+
+/* ① 上下文收成一行 */
+.ctxline{ display:flex; align-items:center; gap:7px; padding:0 16px 12px; }
+.ctxline .lab{ font-size:10.5px; color:var(--t3); letter-spacing:.4px; flex:0 0 auto; }
+.chip{ display:inline-flex; align-items:center; gap:5px; height:24px; padding:0 9px;
+  border:1px solid var(--line); border-radius:6px; background:#FAFBFC; font-size:11.5px; color:var(--t1); }
+.chip b{ font-weight:600; }
+.chip .caret{ color:var(--t3); font-size:9px; }
+.chip.add{ color:var(--blue-d); border-style:dashed; background:#fff; padding:0 11px; font-weight:600; }
+.chip.grow{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ② 主角卡 */
+.hero{ position:relative; margin:0 12px 14px; padding:13px 14px 14px 17px; border-radius:11px;
+  background:linear-gradient(180deg,#FFFCFC,#FEF4F4); border:1px solid #F9D7D7; }
+.hero::before{ content:""; position:absolute; left:0; top:0; bottom:0; width:3px; border-radius:11px 0 0 11px;
+  background:var(--red); }
+.hero-line{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--t2); }
+.subj{ display:inline-flex; align-items:center; gap:4px; max-width:200px; padding:1px 8px;
+  border:1px solid #D6E1F4; border-radius:6px; background:#fff; font-size:13px; font-weight:700;
+  color:var(--navy); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.subj .caret{ color:var(--t3); font-size:9px; flex:0 0 auto; }
+.hero-act{ margin-top:9px; font-size:17px; font-weight:700; line-height:1.3; letter-spacing:.2px; }
+.hero-why{ margin-top:6px; font-size:11.5px; color:var(--t2); line-height:1.7; }
+.hero-why .num{ font-family:var(--mono); font-weight:700; color:var(--t1); font-size:12.5px; }
+.hero-btns{ display:flex; gap:8px; margin-top:12px; }
+.btn{ display:inline-flex; align-items:center; gap:5px; border:1px solid var(--line); background:#fff;
+  border-radius:7px; padding:6px 14px; font-size:12.5px; color:var(--t1); }
+.btn.pri{ background:var(--blue-d); border-color:var(--blue-d); color:#fff; font-weight:600; }
+.btn.lg{ padding:8px 20px; font-size:13px; }
+.btn.ghost{ background:transparent; color:var(--t2); }
+
+/* ③ 队列 */
+.sec-hd{ display:flex; align-items:center; gap:9px; padding:9px 16px 7px; }
+.sec-hd .t{ font-size:12.5px; font-weight:700; letter-spacing:.2px; }
+.sec-hd .n{ font-size:11px; color:var(--t2); background:#F4F6F9; border-radius:9px; padding:1px 8px; }
+.sec-hd .n b{ color:var(--red); font-weight:700; }
+.sec-hd .more{ margin-left:auto; font-size:11.5px; color:var(--t3); }
+.sec-bd{ padding:0 8px 10px; }
+
+.q{ position:relative; display:flex; align-items:center; gap:11px; padding:10px 8px 10px 13px;
+  border-radius:9px; }
+.q + .q{ margin-top:2px; }
+.q:hover{ background:#F8FAFC; }
+.q::before{ content:""; position:absolute; left:2px; top:12px; bottom:12px; width:3px; border-radius:2px;
+  background:#CBD5E1; }
+.q.sev-danger::before{ background:var(--red); }
+.q.sev-warn::before{ background:var(--amber); }
+.q-main{ flex:1; min-width:0; }
+/* 对象名是主语 —— 这一行以前是缺的 */
+.q-obj{ font-size:13.5px; font-weight:700; color:var(--t1); overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap; }
+.q-tags{ display:flex; gap:5px; margin-top:4px; flex-wrap:wrap; }
+.money{ display:inline-flex; align-items:center; font-family:var(--mono); font-size:12.5px; font-weight:700;
+  color:var(--t1); background:#FFF4F4; border:1px solid #FBD5D5; border-radius:5px; padding:1px 7px; }
+.money.warn{ background:var(--amber-50); border-color:#F7E4C3; }
+.money.calm{ background:#F6F8FB; border-color:var(--line); color:var(--t2); }
+.q-why{ font-size:11px; color:var(--t3); margin-top:4px; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap; }
+.q-go{ flex:0 0 auto; border:1px solid var(--blue-100); border-radius:7px; background:#fff;
+  color:var(--blue-d); font-size:11.5px; padding:5px 13px; font-weight:600; }
+.q-sum{ display:flex; align-items:center; gap:10px; margin:8px 8px 0; padding:9px 11px;
+  background:#F8FAFC; border:1px dashed var(--line); border-radius:8px; font-size:11.5px; color:var(--t2); }
+.q-sum .num{ font-family:var(--mono); font-weight:700; color:var(--t1); font-size:12.5px; }
+.q-sum .more{ margin-left:auto; color:var(--blue-d); font-weight:600; }
+
+/* ④ 折叠背景 */
+.fold{ border-top:1px solid var(--line-2); }
+.fold-hd{ display:flex; align-items:center; gap:9px; padding:10px 16px; }
+.fold-hd .chev{ font-size:9px; color:var(--t3); flex:0 0 8px; }
+.fold-hd .t{ font-size:12.5px; font-weight:600; color:var(--t2); }
+.fold-hd .n{ font-size:11px; color:var(--t3); background:#F4F6F9; border-radius:9px; padding:1px 7px; }
+.fold-hd .pv{ flex:1; min-width:0; font-size:11px; color:var(--t3); overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap; }
+
+/* ---------- 右栏 ---------- */
+.right{ flex:1; display:flex; flex-direction:column; background:var(--bg); min-width:0; }
+.snapshot{ height:52px; flex:0 0 52px; display:flex; align-items:center; gap:10px; padding:0 20px;
+  background:#fff; border-bottom:1px solid var(--line); }
+.snapshot .lab{ font-size:11.5px; color:var(--t3); }
+.fb{ font-size:11.5px; color:var(--t2); border:1px solid var(--line); border-radius:6px;
+  padding:3px 9px; background:#FAFBFC; }
+.snapshot .link{ margin-left:auto; font-size:11.5px; color:var(--blue-d); }
+
+.streamwrap{ flex:1; overflow-y:auto; padding:16px 20px 24px; }
+.col{ width:100%; max-width:1000px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+
+.runbar{ background:#fff; border:1px solid var(--line); border-radius:10px; padding:13px 16px;
+  box-shadow:0 1px 2px rgba(16,24,40,.04); }
+.rb1{ display:flex; align-items:center; gap:9px; }
+.rb-title{ font-size:14.5px; font-weight:700; }
+.pill{ font-size:11px; border-radius:5px; padding:2px 7px; }
+.pill.agent{ background:#FFFBEB; color:#B45309; }
+.pill.gray{ background:#F4F6F9; color:var(--t2); }
+.rb2{ display:flex; align-items:center; gap:9px; margin-top:10px; padding-top:10px;
+  border-top:1px dashed var(--line); }
+.param{ font-family:var(--mono); font-size:11.5px; color:var(--t2); background:#F8FAFC;
+  border:1px solid var(--line); border-radius:5px; padding:3px 8px; }
+.cost{ font-size:11.5px; padding:3px 9px; border-radius:5px; background:var(--amber-50); color:#B45309; }
+.rb2 .right-btns{ margin-left:auto; display:flex; gap:7px; }
+
+/* Run 分组 */
+.group{ background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden;
+  box-shadow:0 1px 2px rgba(16,24,40,.04); }
+.group-hd{ display:flex; align-items:center; gap:10px; padding:11px 15px; }
+.group-hd .chev{ font-size:9px; color:var(--t3); }
+.group-hd .gt{ font-size:13px; font-weight:700; }
+.group-hd .gn{ font-size:11.5px; color:var(--t2); }
+.group-hd .when{ font-size:11.5px; color:var(--t3); }
+.group-hd .act{ margin-left:auto; font-size:11.5px; color:var(--t3); }
+.group-bd{ border-top:1px solid var(--line-2); padding:14px 16px 16px; }
+
+.r-hd{ display:flex; align-items:center; gap:9px; }
+.r-hd .rt{ font-size:14px; font-weight:700; }
+.badge-ok{ font-size:11px; color:var(--green); background:var(--green-50); border-radius:5px; padding:2px 8px;
+  font-weight:600; }
+.r-hd .acts{ margin-left:auto; display:flex; gap:7px; }
+.r-meta{ margin-top:6px; font-size:11.5px; color:var(--t3); }
+.summary{ margin-top:11px; font-size:13px; line-height:1.75; }
+.summary .num{ font-family:var(--mono); font-weight:700; color:var(--red); }
+.kvbox{ margin-top:12px; border:1px solid var(--line-2); border-radius:8px; overflow:hidden; }
+.kvbox .kvhd{ padding:8px 12px; background:#FAFBFC; font-size:11.5px; font-weight:600; color:var(--t2);
+  border-bottom:1px solid var(--line-2); }
+.kv{ display:grid; grid-template-columns:repeat(3,1fr); }
+.kv .cell{ padding:10px 12px; border-right:1px solid var(--line-2); border-bottom:1px solid var(--line-2); }
+.kv .cell:nth-child(3n){ border-right:none; }
+.kv .k{ font-size:11px; color:var(--t3); }
+.kv .v{ font-family:var(--mono); font-size:15px; font-weight:700; margin-top:2px; }
+.kv .v.small{ font-size:12.5px; font-weight:600; }
+
+.mini{ display:flex; align-items:center; gap:10px; padding:9px 12px; border-top:1px solid var(--line-2);
+  font-size:12px; }
+.mini:first-child{ border-top:none; }
+.mini .mt{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mini .mm{ font-size:11px; color:var(--t3); }
+.badge-fail{ font-size:11px; color:#B91C1C; background:var(--red-50); border-radius:5px; padding:2px 8px;
+  font-weight:600; }
+
+/* 一个对象上挂多件事：摊在行内，每条各自带执行按钮。
+   不合并成一次执行——一次执行只能跑一条意图，写"办理 2 件"是假的。 */
+.q-sub { margin-top: 7px; border-left: 2px solid var(--line); padding-left: 8px; }
+.q-subrow { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.q-subt { flex: 1; min-width: 0; font-size: 11.5px; color: var(--t2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q-go.sm { padding: 2px 9px; font-size: 11px; }
+.tchip { display: inline-flex; align-items: center; height: 20px; padding: 0 7px;
+  border: 1px solid var(--line); border-radius: 5px; background: #FAFBFC;
+  font-size: 11px; color: var(--t2); white-space: nowrap; }
+.qs-money { font-size: 11.5px; color: var(--t2); }
+.qs-money b { font-family: var(--mono); font-weight: 700; color: var(--t1); }
+.q-sum .q-more { margin-left: auto; }
+
+/* ---------- 标注 ---------- *
+   徽标锚定在它所标注的区块上（inline），不做绝对定位——
+   绝对定位会相对 .stage 走，窗口一变形标注就指错地方。 */
+.pinb{ display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px;
+  border-radius:50%; background:var(--navy); color:#fff; font-size:11px; font-weight:700;
+  flex:0 0 auto; }
+.hero .pinb{ position:absolute; right:11px; top:11px; }
+.see{ font-size:10.5px; color:var(--t3); border:1px solid var(--line); border-radius:4px;
+  padding:0 5px; margin-left:6px; }
+
+/* ---------- 对照说明 ---------- */
+.legend{ margin-top:26px; display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.lcard{ background:#fff; border-radius:12px; padding:18px 20px; box-shadow:0 2px 10px rgba(16,24,40,.06); }
+.lcard .no{ display:inline-flex; width:22px; height:22px; border-radius:50%; background:var(--navy); color:#fff;
+  font-size:12px; font-weight:700; align-items:center; justify-content:center; margin-right:8px; }
+.lcard h3{ display:flex; align-items:center; margin:0 0 12px; font-size:14px; font-weight:700; }
+.lcard .role{ font-size:11px; color:var(--t3); font-weight:500; margin-left:auto; }
+.lcard .kvline{ display:flex; gap:8px; font-size:12px; line-height:1.7; margin-bottom:8px; }
+.lcard .kvline .k{ flex:0 0 42px; color:var(--t3); font-size:11.5px; padding-top:1px; }
+.lcard .kvline .v{ flex:1; min-width:0; }
+.lcard code{ font-family:var(--mono); font-size:11px; background:#F6F8FB; border:1px solid var(--line);
+  border-radius:4px; padding:1px 5px; word-break:break-all; }
+.lcard .del{ color:#B91C1C; }
+.lcard .add{ color:#15803D; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="doc-head">
+    <h1>意图工作台 · 首屏再设计 v2</h1>
+    <span class="sub">评审稿 · 数据取自 2026-09-19 真实运行实例（18 条建议 / 16 件事 / 逾期合计 40.44 万）</span>
+    <span class="tag">图上 ①②③ = 下方三张卡</span>
+  </div>
+
+  <p style="margin:0 0 14px; padding:10px 14px; border-radius:9px; font-size:12.5px; line-height:1.7;
+     background:#FFFBEB; border:1px solid #F7E4C3; color:#7C4A03;">
+    ⚠️ <b>本图已被取代</b>（2026-09-19 下午又改了一轮）。两处与现状不同：<br>
+    ① 上下文不再是左栏顶部那一行，而是合并成<b>横跨整页的顶部通栏</b>（右栏那条只读快照也并了进去）；
+    ② 右栏的结果卡不再直接渲染表格，改成 <b>结论 → 指标卡 → 行动卡</b> 的视觉语法。<br>
+    <b>以实际页面为准</b> → <code>http://127.0.0.1:48080/intent-ui/preview.html</code>
+  </p>
+
+  <div class="stage">
+    <!-- ================= 顶栏 ================= -->
+    <div class="topbar">
+      <div class="brand"><span class="logo">RC</span>ruoyi-office</div>
+      <div class="nav">
+        <span>工作台</span><span>流程中心</span><span>OA协同办公</span><span>人力资源管理</span>
+        <span class="on">意图工作台 <b class="navbadge">16</b></span>
+      </div>
+      <div class="top-right">
+        <div class="cmdk"><span>搜索意图、对象，或直接说一句…</span><span class="kbd">Ctrl K</span></div>
+        <div class="viewswitch">视角　<strong>我自己</strong> ▾</div>
+        <div class="avatar">学</div>
+      </div>
+    </div>
+
+    <div class="body">
+      <!-- ================= 左栏 ================= -->
+      <aside class="left">
+        <div class="focus">
+          <div>
+            <div class="fname">我的管理驾驶舱</div>
+            <div class="fmeta">主管 · 我自己 · 23 条能力可用</div>
+          </div>
+          <span class="switch">全部能力</span>
+        </div>
+
+        <!-- ① 上下文：一行，不再是六行 -->
+        <div class="ctxline">
+          <span class="pinb">2</span>
+          <span class="lab">上下文</span>
+          <span class="chip grow"><b>客户</b> 金辉电子科技 <span class="caret">▾</span></span>
+          <span class="chip"><b>时间窗</b> 近90天 <span class="caret">▾</span></span>
+          <span class="chip add">＋</span>
+        </div>
+
+        <!-- ② 主角卡：说"做什么"，主语从数据里带出来 -->
+        <div class="hero">
+          <span class="pinb">1</span>
+          <div class="hero-line">给 <span class="subj">客户　金辉电子科技有限公司 <span class="caret">▾</span></span> 做</div>
+          <div class="hero-act">逾期风险预警</div>
+          <div class="hero-why">
+            <span class="num">19.12 万</span> · 逾期 <span class="num">23</span> 天 ·
+            <span class="num">38</span> 天未联系 · 共 <span class="num">2</span> 件
+          </div>
+          <div class="hero-btns">
+            <span class="btn pri lg">执行</span>
+            <span class="btn ghost lg">换一件事</span>
+          </div>
+        </div>
+
+        <!-- ③ 队列：对象当主语 + 金额升为一级信息 -->
+        <div class="sec-hd">
+          <span class="pinb">1</span>
+          <span class="t">今天要办的</span>
+          <span class="n">16 件 · <b>2 件要救</b></span>
+          <span class="more">金额优先 ▾</span>
+        </div>
+        <div class="sec-bd">
+          <div class="q sev-danger">
+            <div class="q-main">
+              <div class="q-obj">金辉电子科技有限公司</div>
+              <div class="q-tags"><span class="money">19.12 万</span><span class="tchip">2 件</span><span class="tchip">逾期 23 天</span><span class="tchip">38 天未联系</span></div>
+              <div class="q-sub">
+                <div class="q-subrow"><span class="q-subt">客户「金辉电子科技有限公司」第 1 期回款已逾期 23 天</span><span class="q-go sm">执行</span></div>
+                <div class="q-subrow"><span class="q-subt">客户「金辉电子科技有限公司」第 1 期回款已逾期 11 天</span><span class="q-go sm">执行</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="q sev-danger">
+            <div class="q-main">
+              <div class="q-obj">天诚智慧物流园区</div>
+              <div class="q-tags"><span class="money">13.00 万</span><span class="tchip">逾期 17 天</span><span class="tchip">14 天未联系</span></div>
+            </div>
+            <span class="q-go">执行</span>
+          </div>
+          <div class="q sev-danger">
+            <div class="q-main">
+              <div class="q-obj">朗润医疗·进销存管理</div>
+              <div class="q-tags"><span class="money">8.00 万</span><span class="tchip">商机停滞 46 天</span></div>
+            </div>
+            <span class="q-go">执行</span>
+          </div>
+          <div class="q sev-danger">
+            <div class="q-main">
+              <div class="q-obj">百味食品加工有限公司</div>
+              <div class="q-tags"><span class="money">7.13 万</span><span class="tchip">逾期 8 天</span></div>
+            </div>
+            <span class="q-go">执行</span>
+          </div>
+          <div class="q sev-danger">
+            <div class="q-main">
+              <div class="q-obj">宏图建筑设计院有限公司</div>
+              <div class="q-tags"><span class="money">1.20 万</span><span class="tchip">2 件</span><span class="tchip">26 天未联系</span></div>
+              <div class="q-sub">
+                <div class="q-subrow"><span class="q-subt">客户「宏图建筑设计院有限公司」第 1 期回款已逾期 2 天</span><span class="q-go sm">执行</span></div>
+                <div class="q-subrow"><span class="q-subt">客户「宏图建筑设计院有限公司」待跟进</span><span class="q-go sm">执行</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="q-sum">
+            <span class="qs-money">逾期风险预警 · 合计 <b>40.44 万</b></span>
+            <span class="q-more">还有 11 件 ▸</span>
+          </div>
+        </div>
+
+        <!-- 折叠背景 -->
+        <div class="fold">
+          <div class="fold-hd"><span class="chev">▸</span><span class="t">我该办的</span><span class="n">4 组 · 9 件</span><span class="pv">最急：合同待审批 2 件</span></div>
+        </div>
+        <div class="fold">
+          <div class="fold-hd"><span class="chev">▸</span><span class="t">我常做的</span><span class="n">前 5 个</span><span class="pv">常用：客户健康度诊断 · 拜访准备</span></div>
+        </div>
+        <div class="fold">
+          <div class="fold-hd"><span class="chev">▸</span><span class="t">批量摸底</span><span class="n">未开始</span><span class="pv">一个意图 × 一组对象 × 一次跑完</span></div>
+        </div>
+        <div class="fold">
+          <div class="fold-hd"><span class="chev">▸</span><span class="t">做过的</span><span class="n">6 条</span><span class="pv">最近：今日跟进优先级 · 00:40</span></div>
+        </div>
+      </aside>
+
+      <!-- ================= 右栏 ================= -->
+      <main class="right">
+        <div class="snapshot">
+          <span class="lab">本次执行的上下文快照（只读）</span>
+          <span class="fb">客户 = 金辉电子科技</span>
+          <span class="fb">时间窗 = 近90天</span>
+          <span class="link">去上下文里改 ▸</span>
+        </div>
+
+        <div class="streamwrap">
+          <div class="col">
+            <div class="runbar">
+              <div class="rb1">
+                <span class="pill agent">agent</span>
+                <span class="rb-title">今日跟进优先级</span>
+                <span class="pill gray">crm.backlog.today-priority</span>
+              </div>
+              <div class="rb2">
+                <span class="param">customerId = 326</span>
+                <span class="param">timeWindow = 近90天</span>
+                <span class="cost">⏱ 约 25 秒 · ≈8k token</span>
+                <span class="right-btns">
+                  <span class="btn">复制参数</span>
+                  <span class="btn pri">执行</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- ④ Run 分组：同一个意图的连续执行收成一组 -->
+            <div class="group">
+              <div class="group-hd">
+                <span class="pinb">3</span>
+                <span class="chev">▾</span>
+                <span class="gt">今日跟进优先级</span>
+                <span class="gn">跑了 6 次</span>
+                <span class="when">最近 23 秒前</span>
+                <span class="act">清空这一组</span>
+              </div>
+              <div class="group-bd">
+                <div class="r-hd">
+                  <span class="rt">今日跟进优先级</span>
+                  <span class="badge-ok">完成</span>
+                  <span class="acts">
+                    <span class="btn">依据</span><span class="btn">复制结果</span><span class="btn">重跑</span>
+                  </span>
+                </div>
+                <div class="r-meta">00:40 · 23 秒 · 7k token · 轨迹 6cfa9aff…</div>
+                <div class="summary">
+                  今天排在最前面的是 <span class="num">金辉电子科技有限公司</span>：2 期回款逾期共 19.12 万，
+                  已逾期 23 天且 38 天没有联系，建议今天先打这个电话。
+                </div>
+                <div class="kvbox">
+                  <div class="kvhd">前 3 件 · 按金额排序</div>
+                  <div class="kv">
+                    <div class="cell"><div class="k">金辉电子科技 · 逾期</div><div class="v">19.12 万</div></div>
+                    <div class="cell"><div class="k">天诚智慧物流 · 逾期</div><div class="v">13.00 万</div></div>
+                    <div class="cell"><div class="k">百味食品加工 · 逾期</div><div class="v">7.13 万</div></div>
+                  </div>
+                </div>
+                <div class="mini"><span class="badge-ok">完成</span><span class="mt">今日跟进优先级</span><span class="mm">00:39 · 29 秒 · 11k token</span><span class="btn">展开</span></div>
+              </div>
+            </div>
+
+            <!-- 失败单独成组，并给清理入口 -->
+            <div class="group">
+              <div class="group-hd">
+                <span class="chev">▸</span>
+                <span class="gt">没跑成</span>
+                <span class="gn">4 次</span>
+                <span class="when">09-18 23:22 ~ 23:42 · 配置模型密钥之前的记录</span>
+                <span class="act">清理</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- ================= 三点建议 ================= -->
+  <div class="legend">
+    <div class="lcard">
+      <h3><span class="no">1</span>对象与金额要成为一等公民<span class="role">产品经理</span></h3>
+      <div class="kvline"><span class="k">症状</span><span class="v">
+        队列项写着「第 1 期回款已逾期 23 天」——<strong>客户名根本没出现</strong>，金额被压在第二行 11px 灰字里。
+        18 条信号其实是 <strong>16 个对象</strong>，其中「宏图建筑设计院」同时挂着"逾期 1.2 万"和"待跟进"，却分成两条。
+      </span></div>
+      <div class="kvline"><span class="k">根因</span><span class="v">
+        规则模板没写对象名：<code>10-crm-receivable-plan-overdue.yaml:19</code> 的
+        <code>title: "第 {{row.period}} 期回款已逾期 {{row.overdueDays}} 天"</code>。
+        而数据集本身也没有这一列 —— <code>CrmIntentFactProvider.java:116-119</code> 只声明了
+        <code>id / period / price / returnTime / overdueDays / customerId / contractId</code>。
+        对照 <code>40-crm-customer-follow.yaml:19</code> 的 <code>title: "客户「{{row.name}}」待跟进"</code>：同一个系统里，有的规则带对象名、有的不带。
+      </span></div>
+      <div class="kvline"><span class="k">改法</span><span class="v">
+        <span class="add">① 数据集补一列 <code>customerName</code>（批量查一次客户名）；</span>
+        <span class="add">② 模板补对象名：「客户「X」第 N 期回款已逾期 M 天」；</span>
+        <span class="add">③ 建议结构上补 <code>objectType / objectId / objectLabel</code>，让 UI 把它渲染成主语而不是解析字符串；</span>
+        <span class="add">④ 按对象聚合一次 —— 18 条 → 16 件，同客户的钱与关系合成一张卡。</span>
+      </span></div>
+    </div>
+
+    <div class="lcard">
+      <h3><span class="no">2</span>左栏的空间分配反了<span class="role">UI 设计师</span></h3>
+      <div class="kvline"><span class="k">症状</span><span class="v">
+        左栏 620px 高里，<strong>空的配置区占了约 60%</strong>（1 个时间窗 + 5 个空槽位 + 3 处重复的"加实体"入口 +
+        5 条"「X」槽空着 ⇒ N 条能力收起"），而"今天要做什么"被挤到只剩 3 行、第 4 行就被截断。
+      </span></div>
+      <div class="kvline"><span class="k">判断</span><span class="v">
+        空间给谁，就是在告诉用户"什么重要"。现在给的是<strong>配置</strong>，而用户要的是<strong>活</strong>。
+        "加实体"入口重复了三次（标题行 / 每个空槽位 / 底部），"几条能力收起"是实施者语言，销售不关心。
+      </span></div>
+      <div class="kvline"><span class="k">改法</span><span class="v">
+        <span class="add">① 上下文默认收成一行 chip（有值才显示 + 一个 ＋），点开才展开成面板 —— 这正是设计稿 §4 原本写的"收起 56px"；</span>
+        <span class="add">② 三处"加实体"合并成一个 ＋；</span>
+        <span class="add">③ "几条能力收起"收成一句、且只在展开态出现。</span>
+      </span></div>
+    </div>
+
+    <div class="lcard">
+      <h3><span class="no">3</span>右栏是"日志墙"，不是"执行流"<span class="role">业务专家</span></h3>
+      <div class="kvline"><span class="k">症状</span><span class="v">
+        整个右栏是 <strong>6 条一模一样的「今日跟进优先级」</strong>，每条占一整行；其中 4 条是
+        <strong>44~83 毫秒的失败</strong>（配置模型密钥之前留下的脏记录），和 2 条成功记录混在一起、无从区分。
+        顶部还留着一大块空态「从左边挑一件事」，与下面的内容并存。
+      </span></div>
+      <div class="kvline"><span class="k">判断</span><span class="v">
+        执行流的价值是"我最近在反复跑什么、上一次结果是什么"。
+        逐条平铺同一件事，等于把<strong>一个问题重复六遍</strong>；而失败记录不清，用户会怀疑系统是不是坏了。
+      </span></div>
+      <div class="kvline"><span class="k">改法</span><span class="v">
+        <span class="add">① 同一意图的连续 Run 折叠成一组：「跑了 6 次 · 最近 23 秒前」；</span>
+        <span class="add">② 失败单独成组，给「清理」，并标注是哪段时间的记录；</span>
+        <span class="add">③ 有 Run 时不再渲染空态；</span>
+        <span class="add">④ 组内只展开最新一条，其余折成一行。</span>
+      </span></div>
+    </div>
+  </div>
+
+  <p style="margin:18px 4px 0; font-size:12px; color:var(--t2); line-height:1.8;">
+    <strong>一句话归纳</strong>：改版前的首屏把 <strong>90% 的屏幕给了"配置"和"历史"</strong>，
+    只把 10% 给了"今天的活"——而"今天的活"里最重要的两样东西（<strong>是谁</strong>、<strong>多少钱</strong>）都藏在第二行的小灰字里。
+    这次的三条改动就是把比例调回来：<em>配置降为一行、历史收成一组、把对象和金额提到一级信息。</em>
+  </p>
+</div>
+</body>
+</html>

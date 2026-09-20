@@ -233,12 +233,36 @@ public class IntentAutoConfiguration {
                 ? dev.pi.ai.Models.resolveApiKey(llm.getProvider())
                 : llm.getApiKey();
         return switch (llm.getProvider()) {
-            case "deepseek" -> LlmConfig.deepseek(key);
+            // deepseek 的预置配置把模型名写死成 deepseek-chat，于是 `intent.llm.model-id`
+            // 在这条路径上**静默失效**——配置改了、日志也打了，但实际请求用的还是内置模型。
+            // 这里把 model-id / base-url 真正应用上去，让"配置里写什么就跑什么"。
+            case "deepseek" -> withOverrides(LlmConfig.deepseek(key), llm);
             case "openai" -> LlmConfig.openai(key, valueOr(llm.getModelId(), "gpt-4o-mini"));
             case "anthropic" -> LlmConfig.anthropic(key, valueOr(llm.getModelId(), "claude-sonnet-4-5"));
             default -> LlmConfig.openAiCompatible(llm.getBaseUrl(), key,
                     valueOr(llm.getModelId(), "deepseek-chat"));
         };
+    }
+
+    /**
+     * 把配置里的 {@code model-id} / {@code base-url} / 窗口参数覆盖到预置 LlmConfig 上。
+     *
+     * <p>为什么要这么写：{@code LlmConfig.deepseek(apiKey)} 是 SDK 提供的预置，模型名与端点
+     * 都是常量。而宿主配置里就有 {@code intent.llm.model-id} 与 {@code intent.llm.base-url}，
+     * 不覆盖的话这两个配置项对 deepseek 用户完全是摆设——**配了不生效、也不报错**，
+     * 属于最难排查的一类问题。未配置的项一律保留预置值，所以老配置行为不变。</p>
+     */
+    private static LlmConfig withOverrides(LlmConfig base, IntentProperties.Llm llm) {
+        String modelId = valueOr(llm.getModelId(), base.modelId());
+        String baseUrl = valueOr(llm.getBaseUrl(), base.baseUrl());
+        long window = llm.getContextWindow() > 0 ? llm.getContextWindow() : base.contextWindow();
+        int maxTokens = llm.getMaxTokens() > 0 ? llm.getMaxTokens() : base.maxTokens();
+        if (modelId.equals(base.modelId()) && baseUrl.equals(base.baseUrl())
+                && window == base.contextWindow() && maxTokens == base.maxTokens()) {
+            return base;
+        }
+        return new LlmConfig(baseUrl, base.api(), base.provider(), modelId, modelId,
+                base.apiKey(), window, maxTokens);
     }
 
     private static String valueOr(String value, String fallback) {

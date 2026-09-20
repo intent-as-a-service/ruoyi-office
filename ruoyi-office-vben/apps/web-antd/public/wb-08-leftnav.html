@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>意图工作台 · 左栏改版：图标导航面板（设计稿）</title>
+<style>
+/* ============================================================================
+   意图工作台 · 左栏改版设计稿 v1
+   ----------------------------------------------------------------------------
+   数据来源：2026-09-19 跑在 ruoyi-office（MySQL 3306 / ruoyi-office 库）上
+             的**真实接口**（/intent/me、/intent/catalog、/intent/runs）。
+             本页出现的每一个数字都来自真实 payload，没有编造：
+               · entries 23 条，suggestions 18 条（kind 全是 item）
+               · 按对象聚合 = 16 个对象（现有「今天要办的」）
+               · 按意图聚合 = 6 组 18 条（建议改成「我该办的」的口径）
+               · runs 15 条
+   ============================================================================ */
+:root{
+  --navy:#1B2A44; --blue:#3B82F6; --blue-d:#2563EB; --blue-50:#EFF6FF; --blue-100:#DBEAFE;
+  --bg:#F2F4F7; --card:#fff; --line:#E6E9F0; --line-2:#F0F2F6;
+  --t1:#1F2733; --t2:#667085; --t3:#98A2B3;
+  --green:#16A34A; --green-50:#ECFDF3; --amber:#F59E0B; --amber-50:#FFFBEB;
+  --red:#EF4444; --red-50:#FEF2F2; --purple:#7C3AED; --purple-50:#F5F3FF;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; }
+body{
+  background:#E9ECF2; color:var(--t1); font-size:13px; line-height:1.55;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  padding:26px 0 70px;
+}
+.wrap{ width:1440px; margin:0 auto; }
+
+/* ---------- 文档头 ---------- */
+.doc-head{ display:flex; align-items:baseline; gap:14px; padding:0 4px 14px; }
+.doc-head h1{ margin:0; font-size:19px; font-weight:700; letter-spacing:.3px; }
+.doc-head .sub{ font-size:12px; color:var(--t2); }
+.doc-head .tag{ margin-left:auto; font-size:11.5px; color:var(--t2); background:#fff;
+  border:1px solid var(--line); border-radius:20px; padding:3px 12px; }
+
+.card{ background:var(--card); border-radius:12px; box-shadow:0 1px 3px rgba(16,24,40,.06), 0 0 0 1px rgba(16,24,40,.04); }
+.sect{ margin-bottom:22px; }
+.sect-hd{ display:flex; align-items:baseline; gap:10px; margin:0 4px 10px; }
+.sect-hd h2{ margin:0; font-size:15px; font-weight:700; }
+.sect-hd .note{ font-size:12px; color:var(--t2); }
+
+/* ---------- 左栏舞台（320px，与真实左栏同宽） ---------- */
+.row4{ display:flex; gap:20px; align-items:flex-start; }
+.col{ width:320px; flex:0 0 320px; }
+.col-hd{ display:flex; align-items:center; gap:7px; margin:0 2px 9px; }
+.col-hd .idx{ width:19px; height:19px; border-radius:5px; background:var(--navy); color:#fff;
+  font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.col-hd .nm{ font-size:13.5px; font-weight:700; }
+.col-hd .badge{ margin-left:auto; font-size:10.5px; border-radius:20px; padding:2px 9px;
+  border:1px solid var(--line); color:var(--t2); background:#fff; }
+.col-hd .badge.rec{ background:var(--blue-50); border-color:var(--blue-100); color:var(--blue-d); font-weight:600; }
+.col-sub{ font-size:11.5px; color:var(--t2); margin:0 2px 9px; line-height:1.6; }
+
+.leftcol{ background:#fff; border-radius:10px; overflow:hidden; min-height:660px;
+  box-shadow:0 1px 3px rgba(16,24,40,.07), 0 0 0 1px rgba(16,24,40,.05); display:flex; flex-direction:column; }
+
+/* 焦点头（沿用现有） */
+.focus{ padding:10px 14px; border-bottom:1px solid var(--line-2); display:flex; align-items:center; gap:10px; }
+.focus .fname{ font-size:13px; font-weight:600; }
+.focus .fmeta{ font-size:11px; color:var(--t3); margin-top:1px; }
+.switch{ margin-left:auto; font-size:11px; color:var(--blue-d); border:1px solid var(--blue-100);
+  border-radius:6px; padding:3px 9px; background:#fff; white-space:nowrap; }
+
+/* 主角卡（沿用现有，只缩一点边距） */
+.hero{ margin:10px 12px 0; border-radius:10px; padding:12px; background:#fff;
+  border:1px solid var(--red-50); box-shadow:0 1px 2px rgba(239,68,68,.08); }
+.hero .hline{ font-size:12px; color:var(--t2); }
+.hero .subj{ font-weight:700; color:var(--t1); }
+.hero .caret{ color:var(--t3); font-size:10px; margin-left:2px; }
+.hero .hact{ font-size:16.5px; font-weight:700; margin-top:3px; letter-spacing:.2px; }
+.hero .hwhy{ font-size:11.5px; color:var(--t2); margin-top:3px; }
+.hero .hbtns{ display:flex; gap:7px; margin-top:10px; }
+.btn{ display:inline-flex; align-items:center; justify-content:center; border-radius:7px;
+  font-size:12px; padding:5px 13px; border:1px solid var(--line); background:#fff; color:var(--t1); }
+.btn.pri{ background:var(--blue-d); border-color:var(--blue-d); color:#fff; font-weight:600; padding:5px 20px; }
+.btn.ghost{ color:var(--t2); }
+.adopt{ margin-left:auto; font-size:10.5px; color:var(--t3); border:1px dashed var(--line);
+  border-radius:6px; padding:2px 8px; background:#fff; }
+
+/* ============ 方案 A：图标行 ============ */
+.navA{ padding:12px 10px 14px; display:flex; flex-direction:column; gap:2px; }
+.nrow{ display:flex; gap:10px; align-items:flex-start; padding:9px 10px; border-radius:9px;
+  position:relative; cursor:pointer; }
+.nrow:hover{ background:#FAFBFC; }
+.nrow.on{ background:#F7F9FC; }
+.nrow.on::before{ content:""; position:absolute; left:0; top:9px; bottom:9px; width:3px;
+  border-radius:0 3px 3px 0; background:var(--tone); }
+.ic{ width:34px; height:34px; flex:0 0 34px; border-radius:9px; display:flex; align-items:center;
+  justify-content:center; background:var(--tonebg); color:var(--tone); box-shadow:inset 0 0 0 1px var(--tonebd); }
+.ic svg{ width:18px; height:18px; }
+.nbody{ min-width:0; flex:1; }
+.nt{ font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px; }
+.nt .cnt{ font-family:var(--mono); font-size:11.5px; color:var(--t2); font-weight:600; }
+.nt .hot{ font-family:var(--mono); font-size:11px; color:var(--red); font-weight:700;
+  background:var(--red-50); border-radius:5px; padding:0 5px; }
+.np{ font-size:11px; color:var(--t3); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.nchev{ color:var(--t3); font-size:10px; margin-left:auto; padding-top:5px; }
+.nbody-open{ padding:2px 2px 8px 44px; }
+.tone-blue{ --tone:#2563EB; --tonebg:#EFF6FF; --tonebd:#DBEAFE; }
+.tone-purple{ --tone:#7C3AED; --tonebg:#F5F3FF; --tonebd:#EDE9FE; }
+.tone-slate{ --tone:#64748B; --tonebg:#F1F5F9; --tonebd:#E2E8F0; }
+
+/* 展开后的正文（沿用现有行样式，简化） */
+.grp{ display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:7px; background:#FAFBFC; margin-bottom:5px; }
+.grp .gname{ font-size:12px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.grp .gn{ font-family:var(--mono); font-size:11.5px; color:var(--t2); }
+.grp .go{ font-size:11px; color:var(--blue-d); background:var(--blue-50); border:1px solid var(--blue-100);
+  border-radius:5px; padding:1px 8px; }
+.qrow{ display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:8px; margin-bottom:5px;
+  border-left:3px solid var(--line); background:#FCFCFD; }
+.qrow .qt{ font-size:12.5px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.qrow .qm{ font-family:var(--mono); font-size:12px; font-weight:700; }
+.qrow.d{ border-left-color:var(--red); }
+.qrow.w{ border-left-color:var(--amber); }
+.mini{ font-size:10.5px; color:var(--t3); padding:2px 0 0 44px; }
+
+/* ============ 方案 B：瓦片 ============ *
+   这是**实际采用的造型**：卡片白底 + 灰细边，颜色只出现在图标块上；
+   未选中都清爽，选中那一块才铺上类别色 —— 全页只有一块有色底，"我在哪"不用找。 */
+.navB{ padding:12px 10px 14px; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.tile{ border-radius:10px; padding:11px 8px 10px; text-align:center; cursor:pointer;
+  background:#FCFCFD; border:1px solid var(--line); }
+.tile.on{ background:var(--tonebg); border-color:var(--tone); box-shadow:0 1px 4px -1px rgba(16,24,40,.14); }
+.tile.on .tt{ color:var(--tone); }
+.tile .tic{ width:30px; height:30px; margin:0 auto 7px; border-radius:9px;
+  background:var(--tonebg); color:var(--tone); display:flex; align-items:center; justify-content:center;
+  box-shadow:inset 0 0 0 1px var(--tonebd); }
+.tile .tic svg{ width:16px; height:16px; }
+.tile .tt{ font-size:12.5px; font-weight:600; }
+.tile .tn{ font-family:var(--mono); font-size:11px; color:var(--tone); margin-top:2px; font-weight:700; }
+.tile .td{ font-size:10.5px; color:var(--t3); margin-top:2px; }
+.tile.off .tic{ background:#F1F5F9; color:var(--t3); box-shadow:none; }
+.tile.off .tt{ color:var(--t2); }
+.tile.off .tn{ color:var(--t3); }
+.tile.wide{ grid-column:1 / -1; }
+
+/* ============ 方案 C：图标竖栏 + 内容 ============ */
+.navC{ display:flex; flex:1; min-height:0; }
+.rail{ width:56px; flex:0 0 56px; border-right:1px solid var(--line-2); padding:10px 0;
+  display:flex; flex-direction:column; align-items:center; gap:6px; }
+.ritem{ width:40px; border-radius:10px; padding:6px 0 5px; display:flex; flex-direction:column;
+  align-items:center; gap:3px; cursor:pointer; color:var(--t3); }
+.ritem .ric{ width:26px; height:26px; display:flex; align-items:center; justify-content:center; }
+.ritem svg{ width:19px; height:19px; }
+.ritem .rlb{ font-size:9.5px; letter-spacing:-.2px; white-space:nowrap; }
+.ritem.on{ background:var(--tonebg); color:var(--tone); box-shadow:inset 0 0 0 1px var(--tonebd); }
+.ritem.on .rlb{ font-weight:700; }
+.rpane{ flex:1; min-width:0; padding:12px 12px 14px; }
+.rpane-hd{ display:flex; align-items:center; gap:8px; margin-bottom:9px; }
+.rpane-hd .rh{ font-size:13.5px; font-weight:700; }
+.rpane-hd .rn{ font-family:var(--mono); font-size:11.5px; color:var(--t2); }
+.rpane-hd .more{ margin-left:auto; font-size:11px; color:var(--blue-d); }
+
+/* ---------- 说明块 ---------- */
+.notes{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.note{ background:#fff; border-radius:11px; padding:15px 17px; box-shadow:0 1px 3px rgba(16,24,40,.06), 0 0 0 1px rgba(16,24,40,.04); }
+.note h3{ margin:0 0 9px; font-size:13.5px; font-weight:700; }
+.note p{ margin:0 0 8px; font-size:12.5px; color:var(--t2); line-height:1.75; }
+.note p:last-child{ margin-bottom:0; }
+.note b{ color:var(--t1); }
+.note code{ font-family:var(--mono); font-size:11.5px; background:#F4F6FA; border-radius:4px; padding:1px 5px; color:#334155; }
+ul.tight{ margin:0; padding-left:17px; }
+ul.tight li{ font-size:12.5px; color:var(--t2); line-height:1.8; }
+.warnbox{ background:#FFFBF5; border:1px solid #FDE7C7; border-radius:11px; padding:15px 17px; }
+.warnbox h3{ color:#B45309; }
+.okbox{ background:#F5FBF7; border:1px solid #CCEBD8; border-radius:11px; padding:15px 17px; }
+.okbox h3{ color:#15803D; }
+.pill{ display:inline-block; font-size:10.5px; border-radius:20px; padding:2px 9px; font-family:var(--mono); }
+.pill.red{ background:var(--red-50); color:#B91C1C; }
+.pill.amb{ background:var(--amber-50); color:#B45309; }
+.pill.gry{ background:#F2F4F7; color:var(--t2); }
+.pill.blu{ background:var(--blue-50); color:var(--blue-d); }
+.pill.pur{ background:var(--purple-50); color:var(--purple); }
+.kv{ display:grid; grid-template-columns:auto 1fr; gap:5px 12px; font-size:12.5px; }
+.kv .k{ color:var(--t2); white-space:nowrap; }
+.kv .v{ color:var(--t1); }
+.icongrid{ display:grid; grid-template-columns:repeat(5,1fr); gap:10px; }
+.iconcell{ text-align:center; background:#FCFCFD; border:1px solid var(--line); border-radius:10px; padding:11px 4px; }
+.iconcell .ic{ margin:0 auto 7px; }
+.iconcell .cl{ font-size:11.5px; font-weight:600; }
+.iconcell .cs{ font-size:10px; color:var(--t3); font-family:var(--mono); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="doc-head">
+    <h1>意图工作台 · 左栏改版</h1>
+    <span class="sub">从「一摞长得一样的折叠条」→「带图标的导航面板」</span>
+    <span class="tag">设计稿 v1 · 数据取自 2026-09-19 真实接口</span>
+  </div>
+
+  <!-- ============================================================== 已拍板 -->
+  <div class="sect">
+    <div class="card" style="padding:14px 20px;border-left:4px solid #16A34A;background:#F5FBF7;">
+      <div style="font-size:13.5px;font-weight:700;color:#15803D;margin-bottom:7px;">✓ 已拍板并实施（2026-09-19）</div>
+      <div style="font-size:12.5px;color:var(--t2);line-height:1.75;">
+        <b>左栏方案选了 B · 瓦片网格</b>，已上线到工作台。B 的已知代价（整句预览放不下）按取舍接受：
+        瓦片只给「计数 + 一个短标签」，整句预览留在正文里。<br>
+        <b>「建议：X ＋」已从顶部通栏移除</b>，挪到主角卡主语旁成为虚线的「摆进上下文」——
+        它和主角卡的主语本来就是同一个对象（两处都调 <code>topActionable()</code>）。<br>
+        <b>「我该办的」数据源本轮<b>不修</b></b>（用户决定）。导航面板如实反映它的空：
+        瓦片压暗并显示「没有待办」，而不是给一个看着有料、点开是空的瓦片。
+      </div>
+      <div style="font-size:12px;color:var(--t2);margin-top:9px;">
+        实际长相请看真实页面：<code>http://127.0.0.1:48080/intent-ui/</code>（admin / admin123）
+        或免登录预览 <code>http://127.0.0.1:48080/intent-ui/preview.html</code>。
+        本页保留为设计过程记录（三个方案的取舍对照）。
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================= 结论 -->
+  <div class="sect">
+    <div class="card" style="padding:16px 20px;">
+      <div style="font-size:13.5px;font-weight:700;margin-bottom:9px;">先回答两个问题</div>
+      <div class="kv" style="margin-bottom:12px;">
+        <span class="k">① 上下文旁边的「建议：X ＋」要不要去掉？</span>
+        <span class="v"><b>要去掉。</b>它和主角卡是<b>同一个对象</b>——两处都调 <code>topActionable()</code>（<code>workbench.js</code> 第 673 行与第 872 行），
+          实测通栏写「建议：宏图设计院·智慧工地管理系统 ＋」，紧挨着的主角卡写「给 宏图设计院·智慧工地管理系统 做」。</span>
+        <span class="k">② 左栏要不要做成图标导航面板？</span>
+        <span class="v"><b>要，但有一个前提必须先修。</b>「我该办的」在生产里是<b>恒空</b>的（详见下面「两个必须先修的问题」），
+          带着一个死块做导航面板，等于把 bug 做成一个永久的导航项。</span>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <span class="pill gry">真实现状：4 条折叠条长得完全一样</span>
+        <span class="pill blu">改后：图标 + 色块 + 计数 + 一句话预览</span>
+        <span class="pill red">红/琥珀已被风险等级占用 —— 导航色块必须避开</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ 两个必修 -->
+  <div class="sect">
+    <div class="sect-hd"><h2>两个必须先修的问题</h2><span class="note">都是在设计过程中查出来的，不是设计本身</span></div>
+    <div class="notes">
+      <div class="warnbox">
+        <h3>⚠ 问题一：「我该办的」永远显示「没有待办」</h3>
+        <p>它读的是 <code>kind: 'aggregate'</code> 的建议（<code>todoGroups()</code> → <code>itemsOf('aggregate')</code>），
+          但<b>后端从不产出这个 kind</b>。实测 <code>/intent/catalog</code> 返回 18 条建议，kind 分布是
+          <code>{"item": 18}</code>，全仓搜索也只有<b>测试 fixture</b> 造过 <code>'aggregate'</code>。</p>
+        <p>后果：真实页面上「今天要办的 16 件 · 7 件要救」下面，紧跟着一行「我该办的 <b>没有待办</b>」——
+          <b>两个块互相打脸</b>。而这个块的折叠条、正文、以及「对全部 N 条办理（一个意图 × 一次执行）」
+          的动作全都已经写好了，只是数据源是空的。</p>
+        <p><b>修法（前端一行）</b>：<code>todoGroups()</code> 改成按 <code>intentId</code> 聚合真实存在的
+          <code>kind: 'item'</code> 建议。18 条信号立刻变成 6 组：</p>
+        <div style="margin-top:8px;font-size:12px;">
+          <div class="grp"><span class="gname">逾期风险预警</span><span class="gn">5 条</span></div>
+          <div class="grp"><span class="gname">客户健康度诊断</span><span class="gn">5 条</span></div>
+          <div class="grp"><span class="gname">线索质量评分</span><span class="gn">3 条</span></div>
+          <div class="grp"><span class="gname">合同审批预检</span><span class="gn">2 条</span></div>
+          <div class="grp"><span class="gname">商机推进策略</span><span class="gn">2 条</span></div>
+          <div class="grp" style="margin-bottom:0;"><span class="gname">合同风险审查</span><span class="gn">1 条</span></div>
+        </div>
+        <p style="margin-top:9px;">口径也和「今天要办的」正好互补：那边是<b>按对象</b>（16 个对象，一个对象一件事），
+          这边是<b>按意图</b>（6 组，一个意图一批一起办）。</p>
+      </div>
+
+      <div class="warnbox">
+        <h3>⚠ 问题二：测试一直在给这个死块喂假数据</h3>
+        <p><code>workbench-boot.test.mjs:94</code> 和 <code>workbench-render.test.mjs:103</code> 里都写着
+          <code>{ kind: 'aggregate', ... }</code> —— 测试<b>自己造</b>了后端不产出的东西，于是
+          「我该办的」在测试里是绿的，在生产里是空的。</p>
+        <p><b>这类 bug 的形状</b>：绿测试 + 空功能。它不会报错、不会 500、不会进日志，
+          只会安静地少掉一块内容——正是这次要做导航面板才把它翻出来。</p>
+        <p><b>防回归</b>：修完 <code>todoGroups()</code> 之后，fixture 里的 <code>kind:'aggregate'</code>
+          要删掉，改成真实的 <code>kind:'item'</code> 多条，否则修了也测不出来。</p>
+        <p style="margin-bottom:0;"><b>顺带一个反直觉的结论</b>：工作台的「导航面板」里，
+          到底有几个块是活的，取决于<b>数据源</b>而不是 UI。所以先把块喂活，再谈怎么摆。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================= 改版前 vs 三方案 -->
+  <div class="sect">
+    <div class="sect-hd">
+      <h2>改版前 · 与三个方案并排</h2>
+      <span class="note">同一份真实数据（主角卡：给 宏图设计院·智慧工地管理系统 做 / 商机推进策略 / 39.90 万）</span>
+    </div>
+
+    <div class="row4">
+
+      <!-- ---------------------------------------------------- 现状 -->
+      <div class="col">
+        <div class="col-hd"><span class="idx">0</span><span class="nm">改版前（真实渲染）</span><span class="badge">现状</span></div>
+        <div class="col-sub">下面这块是按真实 payload 跑出来的当前左栏。四个折叠条<b>完全同款</b>：小三角 + 标题 + 计数 + 一句灰字。</div>
+        <div class="leftcol">
+          <div class="focus">
+            <div><div class="fname">我的管理驾驶舱</div><div class="fmeta">主管 · 我自己 · 23 条能力可用</div></div>
+            <span class="switch">全部能力</span>
+          </div>
+          <div class="hero">
+            <div class="hline">给 <span class="subj">宏图设计院·智慧工地管理系统</span><span class="caret">▾</span> 做</div>
+            <div class="hact">商机推进策略</div>
+            <div class="hwhy">39.90 万</div>
+            <div class="hbtns"><span class="btn pri">执行</span><span class="btn ghost">换一件事</span></div>
+          </div>
+          <div style="padding:12px 12px 14px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span style="font-size:13px;font-weight:600;">今天要办的</span>
+              <span style="font-size:11.5px;color:var(--t2);">16 件 · <b style="color:var(--red);font-family:var(--mono);">7</b> 件要救</span>
+              <span style="margin-left:auto;font-size:11px;color:var(--blue-d);">全部 ▸</span>
+            </div>
+            <div class="qrow d"><span class="qt">宏图设计院·智慧工地管理系统</span><span class="qm">39.90 万</span></div>
+            <div class="qrow d"><span class="qt">金辉电子科技有限公司</span><span class="qm">19.12 万</span></div>
+            <div class="mini">+ 还有 14 件</div>
+
+            <div style="margin-top:14px;border-top:1px solid var(--line-2);padding-top:10px;">
+              <div style="display:flex;align-items:center;gap:7px;padding:7px 2px;font-size:12.5px;">
+                <span style="color:var(--t3);font-size:10px;">▸</span><span style="font-weight:600;">我该办的</span>
+                <span style="color:var(--t3);font-size:11.5px;">没有待办</span>
+                <span style="margin-left:auto;font-size:11px;color:var(--blue-d);">批量办理</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:7px;padding:7px 2px;font-size:12.5px;">
+                <span style="color:var(--t3);font-size:10px;">▸</span><span style="font-weight:600;">我常做的</span>
+                <span style="color:var(--t3);font-size:11.5px;">前 5 个</span>
+                <span style="margin-left:auto;font-size:11px;color:var(--blue-d);">钉选</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:7px;padding:7px 2px;font-size:12.5px;">
+                <span style="color:var(--t3);font-size:10px;">▸</span><span style="font-weight:600;">批量摸底</span>
+                <span style="color:var(--t3);font-size:11.5px;">未开始</span>
+                <span style="margin-left:auto;font-size:11px;color:var(--blue-d);">新建</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:7px;padding:7px 2px;font-size:12.5px;">
+                <span style="color:var(--t3);font-size:10px;">▸</span><span style="font-weight:600;">做过的</span>
+                <span style="color:var(--t3);font-size:11.5px;">15 条</span>
+                <span style="margin-left:auto;font-size:11px;color:var(--blue-d);">刷新</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-sub" style="margin-top:9px;">
+          <b>问题</b>：① 四块同款，要读字才知道哪块是哪块；② 「没有待办」与上面 16 件矛盾；
+          ③ 没有导航感，像内容没做完。
+        </div>
+      </div>
+
+      <!-- ---------------------------------------------------- 方案 A -->
+      <div class="col">
+        <div class="col-hd"><span class="idx">A</span><span class="nm">图标行（推荐）</span><span class="badge rec">推荐</span></div>
+        <div class="col-sub">每块一行：<b>圆角图标色块</b> + 名称 + 计数 + 一句话预览。点开就地向下撑开，不切走、不覆盖。</div>
+        <div class="leftcol">
+          <div class="focus">
+            <div><div class="fname">我的管理驾驶舱</div><div class="fmeta">主管 · 我自己 · 23 条能力可用</div></div>
+            <span class="switch">全部能力</span>
+          </div>
+          <div class="hero">
+            <div class="hline">给 <span class="subj">宏图设计院·智慧工地管理系统</span><span class="caret">▾</span> 做</div>
+            <div class="hact">商机推进策略</div>
+            <div class="hwhy">39.90 万</div>
+            <div class="hbtns">
+              <span class="btn pri">执行</span><span class="btn ghost">换一件事</span>
+              <span class="adopt">摆进上下文</span>
+            </div>
+          </div>
+
+          <div class="navA">
+            <div class="nrow on tone-blue">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/>
+                </svg>
+              </span>
+              <div class="nbody">
+                <div class="nt">今天要办的 <span class="cnt">16 件</span> <span class="hot">7 件要救</span></div>
+                <div class="np">宏图设计院 · 39.90 万 / 金辉电子 · 19.12 万 / 天诚物流 · 13.00 万</div>
+              </div>
+              <span class="nchev">▾</span>
+            </div>
+            <div class="nbody-open">
+              <div class="qrow d"><span class="qt">宏图设计院·智慧工地管理系统</span><span class="qm">39.90 万</span><span class="go">执行</span></div>
+              <div class="qrow d"><span class="qt">金辉电子科技有限公司 <span style="font-weight:400;color:var(--t3);font-size:11px;">2 件 · 逾期 23 天</span></span><span class="qm">19.12 万</span></div>
+              <div class="qrow w"><span class="qt">天诚智慧物流园区 <span style="font-weight:400;color:var(--t3);font-size:11px;">逾期 17 天</span></span><span class="qm">13.00 万</span></div>
+              <div class="mini">商机推进策略 · 合计 47.90 万　还有 12 件 ▸</div>
+            </div>
+
+            <div class="nrow tone-blue">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 11.5l2.2 2.2L15.5 9"/><rect x="3" y="4" width="18" height="17" rx="2.5"/>
+                </svg>
+              </span>
+              <div class="nbody">
+                <div class="nt">我该办的 <span class="cnt">6 组 · 18 条</span></div>
+                <div class="np">最急：逾期风险预警 5 条 · 健康度诊断 5 条 · 线索评分 3 条</div>
+              </div>
+              <span class="nchev">▸</span>
+            </div>
+
+            <div class="nrow tone-purple">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M13 2 4 13.5h7L10 22l9-11.5h-7L13 2z"/>
+                </svg>
+              </span>
+              <div class="nbody">
+                <div class="nt">我常做的 <span class="cnt">前 5 个</span></div>
+                <div class="np">团队辅导预警 · 业绩达成预测 · 销售漏斗诊断</div>
+              </div>
+              <span class="nchev">▸</span>
+            </div>
+
+            <div class="nrow tone-purple">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m12 3 2 5.6 5.6 2-5.6 2L12 18.2 10 12.6 4.4 10.6 10 8.6 12 3z"/><path d="M18.5 16.5 19.4 19l2.5.9-2.5.9-.9 2.5"/>
+                </svg>
+              </span>
+              <div class="nbody">
+                <div class="nt">批量摸底 <span class="cnt">未开始</span></div>
+                <div class="np">团队客户体检 · 3 条意图 · 一个意图 × 一组对象 × 一次跑完</div>
+              </div>
+              <span class="nchev">▸</span>
+            </div>
+
+            <div class="nrow tone-slate">
+              <span class="ic">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3 8.4"/><path d="M3 3.5v5h5"/><path d="M12 7.5V12l3.2 1.9"/>
+                </svg>
+              </span>
+              <div class="nbody">
+                <div class="nt">做过的 <span class="cnt">15 条</span></div>
+                <div class="np">最近：逾期风险预警 · 02:30 · 23.0s</div>
+              </div>
+              <span class="nchev">▸</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-sub" style="margin-top:9px;">
+          <b>优点</b>：预览文字留住了（不点也知道里面有什么）；改动最小，320px 完全够用；色块直接承担「哪一类」。
+        </div>
+      </div>
+
+      <!-- ---------------------------------------------------- 方案 B -->
+      <div class="col">
+        <div class="col-hd"><span class="idx">B</span><span class="nm">瓦片网格</span><span class="badge">更像面板</span></div>
+        <div class="col-sub">2 列方形瓦片，图标在上、名称与数字在下。最接近"导航面板"的字面意思。</div>
+        <div class="leftcol">
+          <div class="focus">
+            <div><div class="fname">我的管理驾驶舱</div><div class="fmeta">主管 · 我自己 · 23 条能力可用</div></div>
+            <span class="switch">全部能力</span>
+          </div>
+          <div class="hero">
+            <div class="hline">给 <span class="subj">宏图设计院·智慧工地管理系统</span><span class="caret">▾</span> 做</div>
+            <div class="hact">商机推进策略</div>
+            <div class="hwhy">39.90 万</div>
+            <div class="hbtns"><span class="btn pri">执行</span><span class="btn ghost">换一件事</span></div>
+          </div>
+          <div class="navB">
+            <div class="tile tone-blue on">
+              <span class="tic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/></svg></span>
+              <div class="tt">今天要办的</div>
+              <div class="tn">16 件</div>
+              <div class="td"><span style="font-family:var(--mono);font-weight:700;color:var(--red);background:var(--red-50);border-radius:4px;padding:0 5px;">7 件要救</span></div>
+            </div>
+            <div class="tile tone-blue off">
+              <span class="tic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5l2.2 2.2L15.5 9"/><rect x="3" y="4" width="18" height="17" rx="2.5"/></svg></span>
+              <div class="tt">我该办的</div>
+              <div class="tn">没有待办</div>
+            </div>
+            <div class="tile tone-purple">
+              <span class="tic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 13.5h7L10 22l9-11.5h-7L13 2z"/></svg></span>
+              <div class="tt">我常做的</div>
+              <div class="tn">前 5 个</div>
+            </div>
+            <div class="tile tone-purple off">
+              <span class="tic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2 5.6 5.6 2-5.6 2L12 18.2 10 12.6 4.4 10.6 10 8.6 12 3z"/><path d="M18.5 16.5 19.4 19l2.5.9-2.5.9-.9 2.5"/></svg></span>
+              <div class="tt">批量摸底</div>
+              <div class="tn">未开始</div>
+              <div class="td">3 条意图</div>
+            </div>
+            <div class="tile tone-slate wide">
+              <span class="tic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3 8.4"/><path d="M3 3.5v5h5"/><path d="M12 7.5V12l3.2 1.9"/></svg></span>
+              <div class="tt">做过的</div>
+              <div class="tn">15 条</div>
+            </div>
+          </div>
+          <div style="padding:0 12px 14px;">
+            <div style="font-size:11px;color:var(--t3);border-top:1px solid var(--line-2);padding-top:10px;">
+              选中「今天要办的」后，正文显示在下方（这里省略）
+            </div>
+          </div>
+        </div>
+        <div class="col-sub" style="margin-top:9px;">
+          <b>已采用</b>（2026-09-19 上线）。造型再往「图标集」那一版靠了一步：
+          <b>卡片保持白底 + 灰细边，颜色只出现在图标块上</b>，只有选中那一块铺类别色。
+          第一版是把五块都铺满类别色，五块彩色摆在一起页面很吵——<b>颜色一多就不承担信息了</b>。<br>
+          <b>代价</b>：每格 ~144px，<b>整句预览放不下</b>（「最急：逾期风险预警 5 条」塞不进），
+          瓦片只给「计数 + 一个短标签」，整句预览留在正文里。这是取舍不是疏忽。
+        </div>
+      </div>
+
+      <!-- ---------------------------------------------------- 方案 C -->
+      <div class="col">
+        <div class="col-hd"><span class="idx">C</span><span class="nm">图标竖栏 + 内容区</span><span class="badge">导航感最强</span></div>
+        <div class="col-sub">左 56px 纯图标竖栏（选中项实心色块），右侧 264px 是选中块的正文。</div>
+        <div class="leftcol">
+          <div class="focus">
+            <div><div class="fname">我的管理驾驶舱</div><div class="fmeta">主管 · 我自己 · 23 条能力可用</div></div>
+            <span class="switch">全部能力</span>
+          </div>
+          <div class="hero" style="margin-bottom:10px;">
+            <div class="hline">给 <span class="subj">宏图设计院·智慧工地管理系统</span><span class="caret">▾</span> 做</div>
+            <div class="hact">商机推进策略</div>
+            <div class="hwhy">39.90 万</div>
+            <div class="hbtns"><span class="btn pri">执行</span><span class="btn ghost">换一件事</span></div>
+          </div>
+          <div class="navC">
+            <div class="rail">
+              <div class="ritem on tone-blue">
+                <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/></svg></span>
+                <span class="rlb">要办的</span>
+              </div>
+              <div class="ritem tone-blue">
+                <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5l2.2 2.2L15.5 9"/><rect x="3" y="4" width="18" height="17" rx="2.5"/></svg></span>
+                <span class="rlb">该办的</span>
+              </div>
+              <div class="ritem tone-purple">
+                <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 13.5h7L10 22l9-11.5h-7L13 2z"/></svg></span>
+                <span class="rlb">常做的</span>
+              </div>
+              <div class="ritem tone-purple">
+                <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2 5.6 5.6 2-5.6 2L12 18.2 10 12.6 4.4 10.6 10 8.6 12 3z"/><path d="M18.5 16.5 19.4 19l2.5.9-2.5.9-.9 2.5"/></svg></span>
+                <span class="rlb">摸底</span>
+              </div>
+              <div class="ritem tone-slate">
+                <span class="ric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3 8.4"/><path d="M3 3.5v5h5"/><path d="M12 7.5V12l3.2 1.9"/></svg></span>
+                <span class="rlb">做过的</span>
+              </div>
+            </div>
+            <div class="rpane">
+              <div class="rpane-hd">
+                <span class="rh">今天要办的</span><span class="rn">16 件</span>
+                <span class="more">全部 ▸</span>
+              </div>
+              <div class="qrow d"><span class="qt">宏图设计院·智慧工地</span><span class="qm">39.90 万</span></div>
+              <div class="qrow d"><span class="qt">金辉电子科技</span><span class="qm">19.12 万</span></div>
+              <div class="qrow w"><span class="qt">天诚智慧物流园区</span><span class="qm">13.00 万</span></div>
+              <div class="qrow d"><span class="qt">朗润医疗·进销存</span><span class="qm">8.00 万</span></div>
+              <div style="font-size:10.5px;color:var(--t3);padding-top:4px;">商机推进策略 · 合计 47.90 万　还有 12 件 ▸</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-sub" style="margin-top:9px;">
+          <b>代价</b>：320px 被切成 56 + 264，正文实际变窄（金额、逾期天数更容易换行）；
+          树栏标签只能压到 3 个字（「要办的」「该办的」），<b>不如原名清楚</b>。
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============================================================== 色块语义 -->
+  <div class="sect">
+    <div class="sect-hd"><h2>色块怎么分：颜色编码类别，不编码序号</h2><span class="note">这是本次设计里最需要拍板的一条</span></div>
+    <div class="notes" style="grid-template-columns:1.15fr 1fr;">
+      <div class="note">
+        <h3>为什么不是 5 个颜色</h3>
+        <p>5 个块给 5 种颜色，看着热闹，但颜色<b>不携带任何信息</b>——用户记不住"紫色是我常做的还是批量摸底"，
+          最后仍然要靠读字。颜色要回答的是<b>「这几块是一类」</b>，所以按用途分成 3 组就够：</p>
+        <div class="kv" style="margin:11px 0 13px;">
+          <span class="k"><span class="pill blu">蓝 · 要你动手</span></span>
+          <span class="v">今天要办的、我该办的 —— 数据推出来的、有截止意味的</span>
+          <span class="k"><span class="pill pur">紫 · 你可以发起</span></span>
+          <span class="v">我常做的、批量摸底 —— 你自己想做什么，不是系统推给你的</span>
+          <span class="k"><span class="pill gry">灰 · 发生过</span></span>
+          <span class="v">做过的 —— 回看，不产生新动作</span>
+        </div>
+        <p>这一刀和现有的三级视觉语法（L1 主角卡 / L2 队列 / L3 折叠背景）是同一套逻辑：
+          <b>先分类，再在类内用图标区分</b>。</p>
+      </div>
+
+      <div class="warnbox">
+        <h3>⚠ 红与琥珀不能拿来当导航色</h3>
+        <p>现在这两个颜色已经被<b>风险等级</b>占满了：</p>
+        <div class="kv" style="margin:9px 0 11px;">
+          <span class="k"><span class="pill red">红</span></span><span class="v"><code>sev-danger</code> · 要救（逾期 / 停滞 / 流失）</span>
+          <span class="k"><span class="pill amb">琥珀</span></span><span class="v"><code>sev-warning</code> · 要看（即将到期 / 待审）</span>
+          <span class="k"><span class="pill gry">灰</span></span><span class="v"><code>sev-info</code> · 可等</span>
+        </div>
+        <p>如果「做过的」被涂成红色、或者「批量摸底」被涂成琥珀，
+          用户会把它读成<b>「这块有危险」</b>——一个导航项被误读成一条告警，比不好看严重得多。</p>
+        <p style="margin-bottom:0;"><b>所以红仍然留给数字</b>：方案 A 里「今天要办的」右侧那个红底
+          <span class="pill red">7 件要救</span> 是<b>计数徽标</b>，不是块的底色。块本身是蓝的。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================== 图标 -->
+  <div class="sect">
+    <div class="sect-hd"><h2>图标集</h2><span class="note">内联 SVG，零构建、零依赖、无字体图标（不引资源、不联网）</span></div>
+    <div class="card" style="padding:16px 18px;">
+      <div class="icongrid">
+        <div class="iconcell tone-blue">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"/></svg></span>
+          <div class="cl">今天要办的</div><div class="cs">inbox</div>
+        </div>
+        <div class="iconcell tone-blue">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5l2.2 2.2L15.5 9"/><rect x="3" y="4" width="18" height="17" rx="2.5"/></svg></span>
+          <div class="cl">我该办的</div><div class="cs">check-square</div>
+        </div>
+        <div class="iconcell tone-purple">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 13.5h7L10 22l9-11.5h-7L13 2z"/></svg></span>
+          <div class="cl">我常做的</div><div class="cs">zap</div>
+        </div>
+        <div class="iconcell tone-purple">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2 5.6 5.6 2-5.6 2L12 18.2 10 12.6 4.4 10.6 10 8.6 12 3z"/><path d="M18.5 16.5 19.4 19l2.5.9-2.5.9-.9 2.5"/></svg></span>
+          <div class="cl">批量摸底</div><div class="cs">sparkles</div>
+        </div>
+        <div class="iconcell tone-slate">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1L3 8.4"/><path d="M3 3.5v5h5"/><path d="M12 7.5V12l3.2 1.9"/></svg></span>
+          <div class="cl">做过的</div><div class="cs">history</div>
+        </div>
+      </div>
+      <p style="font-size:12.5px;color:var(--t2);margin:14px 0 0;">
+        为什么不用 emoji：📋✅⚡ 在 Windows / macOS / 各浏览器上字形与颜色都不一样，
+        <b>同一个面板在不同机器上会长得不一样</b>；而且 emoji 自带颜色，会和色块打架。
+        内联 SVG 用 <code>currentColor</code>，颜色跟着色块走，一份代码处处一致。
+        这五个图标只画在最外层模板里，不引第三方图标库——工作台是零构建页面。
+      </p>
+    </div>
+  </div>
+
+  <!-- ============================================================== 待拍板 -->
+  <div class="sect">
+    <div class="sect-hd"><h2>待拍板</h2></div>
+    <div class="notes">
+      <div class="note">
+        <h3>1 · 选哪个方案</h3>
+        <ul class="tight">
+          <li><b>A 图标行（推荐）</b>：预览文字留得住，改动最小，现有折叠逻辑直接复用（<code>foldBlock</code> 换壳）。</li>
+          <li><b>B 瓦片</b>：最像"面板"，但丢掉预览，且有空格。</li>
+          <li><b>C 竖栏</b>：导航感最强，但正文变窄、标签被迫压成 3 个字。</li>
+        </ul>
+        <p style="margin-top:8px;">也可以 <b>A 的排布 + 每块左侧 3px 色条</b>，不要整块图标底——更安静，但色块辨识度降低。</p>
+      </div>
+      <div class="okbox">
+        <h3>2 · 两件我建议一起做掉的事</h3>
+        <ul class="tight">
+          <li><b>去掉通栏的「建议：X ＋」</b>，把"摆进上下文"挪到主角卡主语旁（方案 A 里那个虚线的
+            <span class="adopt">摆进上下文</span>）。一处说一件事。</li>
+          <li><b>修「我该办的」数据源</b>：按 <code>intentId</code> 聚合 <code>kind:'item'</code>，
+            同时把测试 fixture 里的假 <code>kind:'aggregate'</code> 删掉。</li>
+        </ul>
+        <p style="margin-bottom:0;">不修第二条就做导航面板，等于把"永远空着的一块"钉进导航栏。</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;font-size:11.5px;color:var(--t3);margin-top:26px;">
+    设计稿 · 未实现　|　真实页面 http://127.0.0.1:48080/intent-ui/　|　免登录预览 http://127.0.0.1:48080/intent-ui/preview.html
+  </div>
+
+</div>
+</body>
+</html>

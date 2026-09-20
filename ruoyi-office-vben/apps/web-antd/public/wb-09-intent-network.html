@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>意图工作台 · 中间改造成意图网络（设计稿）</title>
+<style>
+/* ============================================================================
+   意图工作台 · 中间区域 = 意图网络（设计稿 v1，可交互）
+   ----------------------------------------------------------------------------
+   数据来源：2026-09-19 跑在 ruoyi-office（MySQL 3306 / ruoyi-office）上的真实接口。
+   图上每一个节点、每一条边、每一个数字都来自：
+     · /intent/runs    17 条留痕，其中 13 条信封里带 nextIntents
+     · /intent/catalog 当前档案 23 条能力
+   边 = 真实观测到的「这次跑完之后，模型建议接着做哪个意图」，共 16 条，权重=出现次数。
+   **没有任何一条边是设计出来的。**
+   ============================================================================ */
+:root{
+  --navy:#1B2A44; --blue:#3B82F6; --blue-d:#2563EB; --blue-50:#EFF6FF; --blue-100:#DBEAFE;
+  --bg:#F2F4F7; --card:#fff; --line:#E6E9F0; --line-2:#F0F2F6;
+  --t1:#1F2733; --t2:#667085; --t3:#98A2B3;
+  --green:#16A34A; --green-50:#ECFDF3; --amber:#F59E0B; --amber-50:#FFFBEB;
+  --red:#EF4444; --red-50:#FEF2F2; --purple:#7C3AED; --purple-50:#F5F3FF;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --nw:200px; --nh:46px;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; }
+body{ background:#E9ECF2; color:var(--t1); font-size:13px; line-height:1.55;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  padding:26px 0 70px; }
+.wrap{ width:1440px; margin:0 auto; }
+
+.doc-head{ display:flex; align-items:baseline; gap:14px; padding:0 4px 14px; }
+.doc-head h1{ margin:0; font-size:19px; font-weight:700; letter-spacing:.3px; }
+.doc-head .sub{ font-size:12px; color:var(--t2); }
+.doc-head .tag{ margin-left:auto; font-size:11.5px; color:var(--t2); background:#fff;
+  border:1px solid var(--line); border-radius:20px; padding:3px 12px; }
+.card{ background:var(--card); border-radius:12px;
+  box-shadow:0 1px 3px rgba(16,24,40,.06), 0 0 0 1px rgba(16,24,40,.04); }
+.sect{ margin-bottom:22px; }
+.sect-hd{ display:flex; align-items:baseline; gap:10px; margin:0 4px 10px; }
+.sect-hd h2{ margin:0; font-size:15px; font-weight:700; }
+.sect-hd .note{ font-size:12px; color:var(--t2); }
+
+/* ---------------- 交互提示条 ---------------- */
+.tips{ display:flex; gap:8px; flex-wrap:wrap; padding:0 4px 12px; }
+.tip{ font-size:11.5px; background:#fff; border:1px solid var(--line); border-radius:20px;
+  padding:4px 12px; color:var(--t2); }
+.tip b{ color:var(--t1); }
+
+/* ---------------- 舞台 ---------------- */
+.stage{ position:relative; width:1440px; height:900px; background:var(--card);
+  border-radius:12px; overflow:hidden;
+  box-shadow:0 18px 48px -18px rgba(16,24,40,.28), 0 0 0 1px rgba(16,24,40,.05); }
+.topbar{ height:52px; display:flex; align-items:center; gap:20px; padding:0 18px;
+  border-bottom:1px solid var(--line); background:#fff; }
+.brand{ display:flex; align-items:center; gap:9px; font-weight:700; color:var(--navy); }
+.logo{ width:26px; height:26px; border-radius:7px; background:var(--navy); color:#fff; font-size:11px;
+  display:flex; align-items:center; justify-content:center; font-weight:700; }
+.cmdk{ display:flex; align-items:center; gap:10px; width:320px; height:30px; padding:0 11px;
+  border:1px solid var(--line); border-radius:7px; color:var(--t3); font-size:12px; background:#FAFBFC; }
+.cmdk .kbd{ margin-left:auto; font-size:10.5px; border:1px solid var(--line); border-radius:4px;
+  padding:1px 5px; background:#fff; }
+.top-right{ margin-left:auto; display:flex; align-items:center; gap:12px; font-size:12.5px; color:var(--t2); }
+.avatar{ width:28px; height:28px; border-radius:50%; background:var(--blue-50); color:var(--blue-d);
+  display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; }
+
+.ctxbar{ height:40px; display:flex; align-items:center; gap:10px; padding:0 18px;
+  border-bottom:1px solid var(--line); background:#FCFCFD; font-size:12px; color:var(--t2); }
+.cchip{ display:inline-flex; align-items:center; gap:5px; border:1px solid var(--line); border-radius:14px;
+  padding:2px 10px; background:#fff; font-size:11.5px; color:var(--t1); }
+.cchip b{ font-weight:600; }
+
+.body{ display:flex; height:808px; }
+
+/* ---------------- 左栏（上一轮已上线，这里只画个形） ---------------- */
+.left{ width:320px; flex:0 0 320px; border-right:1px solid var(--line); background:#fff;
+  display:flex; flex-direction:column; }
+.focus{ padding:9px 14px; border-bottom:1px solid var(--line-2); display:flex; align-items:center; }
+.focus .fname{ font-size:12.5px; font-weight:600; }
+.focus .fmeta{ font-size:10.5px; color:var(--t3); }
+.switch{ margin-left:auto; font-size:11px; color:var(--blue-d); border:1px solid var(--blue-100);
+  border-radius:6px; padding:2px 8px; }
+.hero{ margin:9px 11px 0; border-radius:10px; padding:10px 11px; border:1px solid var(--red-50);
+  box-shadow:0 1px 2px rgba(239,68,68,.08); }
+.hero .hline{ font-size:11.5px; color:var(--t2); }
+.hero .subj{ font-weight:700; color:var(--t1); }
+.hero .hact{ font-size:15px; font-weight:700; margin-top:2px; }
+.hero .hwhy{ font-size:11px; color:var(--t2); }
+.hero .hbtns{ display:flex; gap:6px; margin-top:8px; align-items:center; }
+.btn{ border-radius:7px; font-size:11.5px; padding:4px 12px; border:1px solid var(--line); background:#fff; }
+.btn.pri{ background:var(--blue-d); border-color:var(--blue-d); color:#fff; font-weight:600; padding:4px 16px; }
+.btn.ghost{ color:var(--t2); }
+.adopt{ margin-left:auto; font-size:10px; color:var(--t3); border:1px dashed var(--line);
+  border-radius:6px; padding:1px 7px; }
+.navtiles{ display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:9px 11px; }
+.ntile{ border-radius:9px; padding:8px 6px 7px; text-align:center; background:#FCFCFD;
+  border:1px solid var(--line); }
+.ntile.on{ background:var(--tonebg); border-color:var(--tone); }
+.ntile.off .ntic{ background:#F1F5F9; color:var(--t3); }
+.ntic{ width:26px; height:26px; margin:0 auto 5px; border-radius:8px; background:var(--tonebg);
+  color:var(--tone); display:flex; align-items:center; justify-content:center; font-size:13px; }
+.ntt{ font-size:11.5px; font-weight:600; }
+.ntn{ font-size:10px; font-family:var(--mono); color:var(--tone); }
+.tone-blue{ --tone:#2563EB; --tonebg:#EFF6FF; }
+.tone-purple{ --tone:#7C3AED; --tonebg:#F5F3FF; }
+.tone-slate{ --tone:#64748B; --tonebg:#F1F5F9; }
+
+/* ---------------- 中间：意图网络 ---------------- */
+.graph{ flex:1; min-width:0; position:relative; background:#FBFCFE; overflow:hidden; }
+.ghead{ position:absolute; left:0; right:0; top:0; height:46px; display:flex; align-items:center;
+  gap:12px; padding:0 20px; border-bottom:1px solid var(--line-2); background:#fff; z-index:4; }
+.ghead .gt{ font-size:13.5px; font-weight:700; }
+.ghead .gs{ font-size:11.5px; color:var(--t3); }
+.ghead .gbtn{ margin-left:auto; display:flex; gap:7px; align-items:center; }
+.gbtn .b{ font-size:11.5px; border:1px solid var(--line); border-radius:7px; padding:3px 11px;
+  background:#fff; color:var(--t2); cursor:pointer; }
+.gbtn .b.on{ background:var(--blue-d); border-color:var(--blue-d); color:#fff; font-weight:600; }
+
+.gcanvas{ position:absolute; left:0; top:46px; right:0; bottom:0; overflow:auto; }
+.gcanvas::-webkit-scrollbar{ width:9px; height:9px; }
+.gcanvas::-webkit-scrollbar-thumb{ background:#DDE1E8; border-radius:5px; }
+.ginner{ position:relative; width:1180px; height:760px; }
+
+.gcol{ position:absolute; top:0; font-size:11px; color:var(--t3); letter-spacing:.4px;
+  font-weight:600; }
+.gcol .cnum{ font-family:var(--mono); color:var(--t3); font-weight:400; }
+
+svg.wires{ position:absolute; left:0; top:0; overflow:visible; pointer-events:none; }
+svg.wires path.edge{ fill:none; stroke:#CBD5E1; stroke-width:1.3; }
+svg.wires path.edge.dim{ stroke:#E2E8F0; }
+svg.wires path.edge.hot{ stroke:var(--blue); stroke-width:2; }
+svg.wires path.edge.run{ stroke:var(--blue); stroke-width:2; stroke-dasharray:7 6;
+  animation:flow .9s linear infinite; }
+@keyframes flow{ to{ stroke-dashoffset:-26; } }
+svg.wires text{ font-size:10px; font-family:var(--mono); fill:var(--t3); }
+svg.wires text.hot{ fill:var(--blue-d); font-weight:700; }
+
+.node{ position:absolute; width:var(--nw); height:var(--nh); border-radius:10px; padding:7px 10px;
+  background:#fff; border:1px solid var(--line); cursor:pointer;
+  transition:box-shadow .14s, border-color .14s, transform .14s, opacity .14s; }
+.node .nn{ font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; }
+.node .nm{ font-size:10px; color:var(--t3); font-family:var(--mono); display:flex; gap:7px;
+  align-items:center; margin-top:1px; }
+/* 已执行 = 重点：深色描边 + 浅蓝底 + 次数徽标 */
+.node.done{ border:1.5px solid var(--navy); background:#F7FAFF;
+  box-shadow:0 2px 7px -2px rgba(27,42,68,.22); }
+.node.done .nn{ font-weight:700; }
+.node .cnt{ position:absolute; right:-7px; top:-7px; min-width:19px; height:19px; border-radius:10px;
+  background:var(--navy); color:#fff; font-size:10.5px; font-weight:700; font-family:var(--mono);
+  display:flex; align-items:center; justify-content:center; padding:0 5px; }
+/* 没跑过但能跑 */
+.node.idle{ border-style:dashed; }
+.node.idle .nn{ color:var(--t2); font-weight:500; }
+/* 不在当前档案能力里 */
+.node.out{ border-style:dashed; background:#FCFCFD; }
+.node.out .nn{ color:var(--t3); }
+.node.out .nm{ color:#B6BEC9; }
+.node .tag{ font-size:9px; border-radius:4px; padding:0 4px; font-family:inherit; }
+.node .tag.out{ background:#F1F5F9; color:var(--t3); }
+.node .tag.ok{ background:var(--green-50); color:#15803D; }
+.node .tag.run{ background:var(--blue-50); color:var(--blue-d); font-weight:700; }
+/* 运行中：呼吸光环。**只表示"正在活动"，不表示进度百分比** */
+.node.running{ border-color:var(--blue); background:#fff;
+  animation:breathe 1.7s ease-in-out infinite; }
+@keyframes breathe{
+  0%,100%{ box-shadow:0 0 0 0 rgba(59,130,246,.42), 0 2px 8px -2px rgba(27,42,68,.2); }
+  50%{ box-shadow:0 0 0 7px rgba(59,130,246,0), 0 2px 8px -2px rgba(27,42,68,.2); }
+}
+.node.hl{ border-color:var(--blue); box-shadow:0 0 0 3px rgba(59,130,246,.14); }
+.node.faded{ opacity:.35; }
+
+/* 悬停浮层：展示下一步意图 */
+.pop{ position:absolute; z-index:20; width:330px; background:#fff; border-radius:11px;
+  box-shadow:0 14px 36px -10px rgba(16,24,40,.30), 0 0 0 1px rgba(16,24,40,.06);
+  padding:11px 13px; pointer-events:none; opacity:0; transform:translateY(4px);
+  transition:opacity .13s, transform .13s; }
+.pop.show{ opacity:1; transform:translateY(0); }
+.pop .pt{ font-size:11.5px; font-weight:700; color:var(--t2); margin-bottom:8px; }
+.pop .prow{ display:flex; gap:8px; padding:6px 0; border-top:1px solid var(--line-2); }
+.pop .prow:first-of-type{ border-top:none; }
+.pop .pdot{ width:6px; height:6px; border-radius:50%; background:var(--blue); margin-top:6px; flex:0 0 6px; }
+.pop .pname{ font-size:12px; font-weight:600; }
+.pop .pw{ font-family:var(--mono); font-size:10px; color:var(--t3); }
+.pop .preason{ font-size:11px; color:var(--t2); line-height:1.55; margin-top:1px;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.pop .pempty{ font-size:11.5px; color:var(--t3); line-height:1.6; }
+
+/* 右侧抽屉：点节点看详情 */
+.drawer{ position:absolute; right:0; top:46px; bottom:0; width:430px; background:#fff;
+  border-left:1px solid var(--line); box-shadow:-14px 0 34px -18px rgba(16,24,40,.3);
+  transform:translateX(100%); transition:transform .2s ease; z-index:12; display:flex; flex-direction:column; }
+.drawer.show{ transform:translateX(0); }
+.dhd{ padding:13px 16px 11px; border-bottom:1px solid var(--line-2); display:flex; gap:10px; align-items:flex-start; }
+.dhd .dtitle{ font-size:14px; font-weight:700; }
+.dhd .dsub{ font-size:11px; color:var(--t3); font-family:var(--mono); margin-top:2px; }
+.dclose{ margin-left:auto; font-size:15px; color:var(--t3); cursor:pointer; line-height:1; }
+.dbd{ padding:13px 16px; overflow:auto; flex:1; }
+.dlead{ font-size:13px; line-height:1.7; color:var(--t1); }
+.dlead b{ font-family:var(--mono); color:var(--red); }
+.dsec{ font-size:11px; font-weight:700; color:var(--t2); margin:14px 0 7px; }
+.dchip{ display:inline-flex; align-items:center; gap:5px; font-size:11.5px; border:1px solid var(--blue-100);
+  background:var(--blue-50); color:var(--blue-d); border-radius:14px; padding:3px 11px; margin:0 5px 5px 0;
+  font-weight:600; }
+.dchip.grey{ border-color:var(--line); background:#FCFCFD; color:var(--t2); font-weight:400; }
+.dtoggle{ font-size:11.5px; color:var(--t2); border:1px solid var(--line); background:#FAFBFC;
+  border-radius:7px; padding:4px 11px; display:inline-block; }
+.dnote{ font-size:11.5px; color:var(--t3); line-height:1.65; background:#FCFCFD;
+  border:1px solid var(--line-2); border-radius:8px; padding:9px 11px; }
+.dbtns{ display:flex; gap:8px; margin-top:12px; }
+
+/* ---------------- 图例 / 说明 ---------------- */
+.notes{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.note{ background:#fff; border-radius:11px; padding:15px 17px;
+  box-shadow:0 1px 3px rgba(16,24,40,.06), 0 0 0 1px rgba(16,24,40,.04); }
+.note h3{ margin:0 0 9px; font-size:13.5px; font-weight:700; }
+.note p{ margin:0 0 8px; font-size:12.5px; color:var(--t2); line-height:1.75; }
+.note p:last-child{ margin-bottom:0; }
+.note b{ color:var(--t1); }
+.note code{ font-family:var(--mono); font-size:11.5px; background:#F4F6FA; border-radius:4px;
+  padding:1px 5px; color:#334155; }
+ul.tight{ margin:0; padding-left:17px; }
+ul.tight li{ font-size:12.5px; color:var(--t2); line-height:1.8; }
+.warnbox{ background:#FFFBF5; border:1px solid #FDE7C7; border-radius:11px; padding:15px 17px; }
+.warnbox h3{ color:#B45309; }
+.okbox{ background:#F5FBF7; border:1px solid #CCEBD8; border-radius:11px; padding:15px 17px; }
+.okbox h3{ color:#15803D; }
+.pill{ display:inline-block; font-size:10.5px; border-radius:20px; padding:2px 9px; font-family:var(--mono); }
+.pill.red{ background:var(--red-50); color:#B91C1C; }
+.pill.blu{ background:var(--blue-50); color:var(--blue-d); }
+.pill.gry{ background:#F2F4F7; color:var(--t2); }
+.pill.grn{ background:var(--green-50); color:#15803D; }
+.kv{ display:grid; grid-template-columns:auto 1fr; gap:6px 14px; font-size:12.5px; }
+.kv .k{ color:var(--t2); white-space:nowrap; }
+.legend{ display:flex; gap:18px; flex-wrap:wrap; padding:14px 18px; }
+.lg{ display:flex; gap:9px; align-items:flex-start; font-size:12px; color:var(--t2); }
+.lg .box{ width:56px; height:26px; border-radius:8px; flex:0 0 56px; position:relative; background:#fff; }
+.lg .box.done{ border:1.5px solid var(--navy); background:#F7FAFF; }
+.lg .box.idle{ border:1px dashed var(--line); }
+.lg .box.out{ border:1px dashed var(--line); background:#FCFCFD; }
+.lg .box.run{ border:1px solid var(--blue); animation:breathe 1.7s ease-in-out infinite; }
+.lg b{ color:var(--t1); display:block; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="doc-head">
+    <h1>意图工作台 · 中间改成意图网络</h1>
+    <span class="sub">左栏导航不动，中间整块用来画"意图之间真实走过的路"</span>
+    <span class="tag">设计稿 v1 · 可交互 · 数据取自 2026-09-19 真实接口</span>
+  </div>
+
+  <div class="tips">
+    <span class="tip"><b>鼠标移到节点上</b> → 高亮它的下一步，并弹出每一步的理由</span>
+    <span class="tip"><b>点节点</b> → 展开下一层（已展开的再点开详情抽屉）</span>
+    <span class="tip"><b>点右上「模拟一次运行」</b> → 看运行中的动画</span>
+    <span class="tip">默认把已执行过的路径铺开，没走过的边灰着</span>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="topbar">
+      <div class="brand"><span class="logo">意</span>意图工作台</div>
+      <div class="cmdk">搜意图、对象、动作…<span class="kbd">⌘K</span></div>
+      <div class="top-right">
+        <span>主管视角</span><span>我的管理驾驶舱</span>
+        <div class="avatar">管</div>
+      </div>
+    </div>
+    <div class="ctxbar">
+      <span style="font-weight:600;color:var(--t1)">▸ 上下文</span>
+      <span class="cchip"><b>时间窗</b> 近90天</span>
+      <span class="cchip" style="border-style:dashed;color:var(--t3)">＋</span>
+      <span style="margin-left:auto;font-size:11.5px;color:var(--t3)">⚠ 上下文已变，网络里高亮的是**跑过**的路径</span>
+    </div>
+
+    <div class="body">
+      <!-- ---------------- 左栏 ---------------- -->
+      <div class="left">
+        <div class="focus">
+          <div><div class="fname">我的管理驾驶舱</div><div class="fmeta">主管 · 我自己 · 23 条能力可用</div></div>
+          <span class="switch">全部能力</span>
+        </div>
+        <div class="hero">
+          <div class="hline">给 <span class="subj">宏图设计院·智慧工地管理系统</span> 做</div>
+          <div class="hact">商机推进策略</div>
+          <div class="hwhy">39.90 万</div>
+          <div class="hbtns"><span class="btn pri">执行</span><span class="btn ghost">换一件事</span>
+            <span class="adopt">摆进上下文</span></div>
+        </div>
+        <div class="navtiles">
+          <div class="ntile tone-blue on"><div class="ntic">📥</div><div class="ntt">今天要办的</div><div class="ntn">16 件</div></div>
+          <div class="ntile tone-blue off"><div class="ntic">☑</div><div class="ntt">我该办的</div><div class="ntn">没有待办</div></div>
+          <div class="ntile tone-purple"><div class="ntic">⚡</div><div class="ntt">我常做的</div><div class="ntn">前 5 个</div></div>
+          <div class="ntile tone-purple off"><div class="ntic">✦</div><div class="ntt">批量摸底</div><div class="ntn">未开始</div></div>
+          <div class="ntile tone-slate" style="grid-column:1/-1"><div class="ntic">🕘</div><div class="ntt">做过的</div><div class="ntn">17 条</div></div>
+        </div>
+        <div style="flex:1;border-top:1px solid var(--line-2);padding:11px 12px;font-size:11px;color:var(--t3);line-height:1.7">
+          左栏保持上一轮的样子不动。<br>这一轮只改中间。
+        </div>
+      </div>
+
+      <!-- ---------------- 中间：网络 ---------------- -->
+      <div class="graph" id="graph">
+        <div class="ghead">
+          <div>
+            <div class="gt">意图网络</div>
+            <div class="gs" id="gsub">17 次运行 · 走过 16 条边 · 4 个意图跑过</div>
+          </div>
+          <div class="gbtn">
+            <span class="b" id="btnExpand">全部展开</span>
+            <span class="b" id="btnCollapse">只看已走过</span>
+            <span class="b" id="btnRun">▶ 模拟一次运行</span>
+          </div>
+        </div>
+        <div class="gcanvas" id="gcanvas">
+          <div class="ginner" id="ginner">
+            <svg class="wires" id="wires" width="1180" height="760"></svg>
+            <div id="nodes"></div>
+            <div class="gcol" style="left:34px">第 0 层 · 你自己发起的 <span class="cnum">3</span></div>
+            <div class="gcol" style="left:394px">第 1 层 · 跑完建议接着做 <span class="cnum">11</span></div>
+            <div class="gcol" style="left:754px">第 2 层 <span class="cnum">4</span></div>
+          </div>
+        </div>
+        <div class="pop" id="pop"></div>
+
+        <!-- 详情抽屉 -->
+        <div class="drawer" id="drawer">
+          <div class="dhd">
+            <div>
+              <div class="dtitle" id="dTitle">—</div>
+              <div class="dsub" id="dSub">—</div>
+            </div>
+            <span class="dclose" id="dClose">✕</span>
+          </div>
+          <div class="dbd" id="dBody"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== 图例 ============================== -->
+  <div class="sect" style="margin-top:22px">
+    <div class="sect-hd"><h2>四种节点状态</h2><span class="note">"已执行"是唯一的重点，其余都是背景</span></div>
+    <div class="card">
+      <div class="legend">
+        <div class="lg"><span class="box done"></span><span><b>已执行 · 重点</b>深色描边 + 浅蓝底 + 右上角跑了 N 次。<b>一眼扫过去先看这几个</b></span></div>
+        <div class="lg"><span class="box idle"></span><span><b>没跑过，但你能跑</b>虚线边，名字变浅。点一下就能发起</span></div>
+        <div class="lg"><span class="box out"></span><span><b>不在你能力里</b>虚线 + 更淡，带「档案外」标签 —— 见下面那条重要发现</span></div>
+        <div class="lg"><span class="box run"></span><span><b>运行中</b>呼吸光环 + 入边流光。<b>只表示"正在活动"，不表示进度百分比</b></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== 两条发现 ============================== -->
+  <div class="sect">
+    <div class="sect-hd"><h2>做这张图时长出来的两条发现</h2><span class="note">都不是设计，是数据里的东西</span></div>
+    <div class="notes">
+      <div class="okbox">
+        <h3>✓ 边是真的，而且比预想的密</h3>
+        <p><code>INTENT_OUTPUT</code> 信封里的 <code>nextIntents</code> 就是"这次跑完之后模型建议接着做哪个意图"，
+          而且每条都带 <code>reason</code>。17 条留痕里 <b>13 条有它</b>，观测到 <b>16 条不同的边</b>。</p>
+        <p>所以这张图<b>不需要任何设计出来的关系</b>：节点是真实意图，边是真实走出来的，
+          连"为什么接着做它"都有原文。权重就是出现次数（<code>今日跟进优先级 → 逾期风险预警</code> 出现过 9 次）。</p>
+        <p style="margin-bottom:0">图上还长出一个真实的<b>汇合点</b>：<code>回款催收计划</code> 同时被
+          「逾期风险预警」和「客户健康度诊断」指向——这是网状结构里最有价值的那种节点，平铺列表永远看不出来。</p>
+      </div>
+      <div class="warnbox">
+        <h3>⚠ 15 个"下一步"里，有 8 个你其实跑不了</h3>
+        <p>模型给的 <code>nextIntents</code> 是它自己挑的，<b>不受当前角色的能力范围约束</b>。
+          实测当前档案 <code>entries</code> 是 23 条，而 15 个下一步目标里
+          <b>只有 7 个在这 23 条里</b>：</p>
+        <div class="kv" style="margin:9px 0 11px">
+          <span class="k"><span class="pill grn">能跑</span></span>
+          <span>逾期风险预警 ×9、续约策略 ×9、合同审批预检 ×8、线索跟进建议 ×8、回款催收计划 ×2、报价策略分析 ×2、客户 360° 拜访准备 ×1</span>
+          <span class="k"><span class="pill gry">档案外</span></span>
+          <span>本周跟进复盘 ×2、商机风险评估 ×2、决策角色识别 ×2、回款三方对账 ×1、客户付款习惯分析 ×1、合同履约跟踪 ×1、客户流失预警 ×1、客户查重 ×1</span>
+        </div>
+        <p><b>图上必须为它们留一种状态</b>（虚线 + 更淡 + 「档案外」标签），并且
+          <b>不给"执行"按钮</b>——给一个点了没反应的按钮，比不显示更糟。</p>
+        <p style="margin-bottom:0">但也不能直接滤掉：<b>"模型建议你下一步做风险评估，而你没有这条能力"本身就是一条该被看见的信息</b>，
+          它说明档案配置和实际工作需要之间有缺口。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== 动画红线 ============================== -->
+  <div class="sect">
+    <div class="sect-hd"><h2>动画的边界</h2><span class="note">工作台的红线：不许造假进度</span></div>
+    <div class="notes">
+      <div class="note">
+        <h3>能动的和不能动的</h3>
+        <ul class="tight">
+          <li><b>能动</b>：正在跑的节点呼吸、入边流光、新展开的一层淡入。这些都直接对应真实状态。</li>
+          <li><b>不能动</b>：任何<b>进度条 / 百分比 / "已完成 60%"</b>。工作台的执行器是黑盒，
+            拿不到中间进度，画一个就是编。</li>
+          <li><b>没有 run 在跑时，全图完全静止</b>——不为了"看起来活着"而空转动画。</li>
+        </ul>
+        <p style="margin-top:8px;margin-bottom:0">时间信息只用<b>真实发生过</b>的：跑了多久（`durationMs`）、什么时候跑的。
+          运行中只报"已等待 N 秒"这种可观测的事实。</p>
+      </div>
+      <div class="note">
+        <h3>点节点会发生什么（要你确认）</h3>
+        <ul class="tight">
+          <li><b>悬停</b>：只高亮 + 弹下一步理由，<b>不改布局</b>（鼠标扫过不该让图跳来跳去）。</li>
+          <li><b>单击</b>：展开它的下一层。</li>
+          <li><b>再点已展开的</b>：打开右侧详情抽屉（那次运行的结果卡：结论 / 下一步 / 查看详情）。</li>
+          <li>或者你也可以选：<b>单击就开详情</b>，展开交给节点上一个小三角。</li>
+        </ul>
+        <p style="margin-top:8px;margin-bottom:0">抽屉是<b>浮在图上</b>的，关掉之后中间 100% 是网络
+          —— 满足"中间这块区域全部用来展示网状结构"。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== 待拍板 ============================== -->
+  <div class="sect">
+    <div class="sect-hd"><h2>待你拍板</h2></div>
+    <div class="notes">
+      <div class="warnbox">
+        <h3>1 · 右侧那一栏怎么处理</h3>
+        <p>现在中间已经吃满，<b>原来的"执行流"（右栏）就没有位置了</b>。三个选项：</p>
+        <ul class="tight">
+          <li><b>A（本稿画的）</b>：抽屉浮层。关掉时中间 100% 是网络；点节点才滑出来。</li>
+          <li><b>B</b>：保留右栏，形成"左导航 | 网络 | 执行流"三栏。网络会窄一大截（1440−320−430=690px），
+            第 1 层 11 个节点要换行。</li>
+          <li><b>C</b>：网络默认吃满，跑完一个意图后<b>自动</b>把抽屉推出来给你看结果。</li>
+        </ul>
+      </div>
+      <div class="warnbox">
+        <h3>2 · 图的起点怎么定</h3>
+        <p>本稿按<b>真实起点</b>铺：没被任何边指向、但自己跑过的意图＝第 0 层（这次是
+          今日跟进优先级 / 商机推进策略 / 客户健康度诊断 三个）。</p>
+        <p style="margin-bottom:0">另一种做法是<b>以左栏选中的那块为根</b>（比如点「今天要办的」就只画它相关的），
+          图会小很多但每天看到的都一样。也可以两者都要：默认全局，点左栏时过滤。</p>
+      </div>
+      <div class="warnbox">
+        <h3>3 · 还有 13 条意图没进过网</h3>
+        <p>23 条能力里，13 条既没跑过、也没被任何下一步指向（销售漏斗诊断、业绩达成预测、团队辅导预警…）。</p>
+        <p style="margin-bottom:0">它们不进主图（会稀释结构），但<b>得有个地方待着</b>——
+          本稿放在图下方一条可展开的「还没进过网」横条。要不要，也请一起定。</p>
+      </div>
+      <div class="okbox">
+        <h3>4 · 这一版是不是你要的"网"</h3>
+        <p style="margin-bottom:0">先看<b>结构对不对</b>（分层方向、已执行的重点、汇合点、悬停弹理由），
+          别先纠结配色间距。结构定了我再调视觉。</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;font-size:11.5px;color:var(--t3);margin-top:24px;">
+    设计稿 · 未实现　|　真实页面 http://127.0.0.1:48080/intent-ui/（本轮只改这个文件，产品代码未动）
+  </div>
+
+</div>
+
+<script>
+/* ============================================================================
+   真实数据（2026-09-19 取自 ruoyi-office 的 /intent/runs 与 /intent/catalog）
+   边 = 留痕信封里观测到的 nextIntents；权重 = 出现次数。没有一条是编的。
+   ============================================================================ */
+const NODES = [
+ {id:'crm.backlog.today-priority',      name:'今日跟进优先级', runs:13, status:'SUCCESS', ms:19400, runnable:true},
+ {id:'crm.business.advance-strategy',   name:'商机推进策略',   runs:2,  status:'SUCCESS', ms:19185, runnable:true},
+ {id:'crm.customer.health-check',       name:'客户健康度诊断', runs:1,  status:'SUCCESS', ms:22973, runnable:true},
+ {id:'crm.receivable.overdue-warning',  name:'逾期风险预警',   runs:1,  status:'SUCCESS', ms:23022, runnable:true},
+ {id:'crm.contract.renewal-plan',       name:'续约策略',       runs:0,  status:null, ms:null, runnable:true},
+ {id:'crm.contract.audit-precheck',     name:'合同审批预检',   runs:0,  status:null, ms:null, runnable:true},
+ {id:'crm.clue.follow-up-suggestion',   name:'线索跟进建议',   runs:0,  status:null, ms:null, runnable:true},
+ {id:'crm.receivable.collection-plan',  name:'回款催收计划',   runs:0,  status:null, ms:null, runnable:true},
+ {id:'crm.business.quote-strategy',     name:'报价策略分析',   runs:0,  status:null, ms:null, runnable:true},
+ {id:'crm.customer.visit-prep',         name:'客户 360° 拜访准备', runs:0, status:null, ms:null, runnable:true},
+ {id:'crm.backlog.weekly-review',       name:'本周跟进复盘',   runs:0,  status:null, ms:null, runnable:false},
+ {id:'crm.business.risk-check',         name:'商机风险评估',   runs:0,  status:null, ms:null, runnable:false},
+ {id:'crm.contact.decision-role',       name:'决策角色识别',   runs:0,  status:null, ms:null, runnable:false},
+ {id:'crm.customer.duplicate-check',    name:'客户查重',       runs:0,  status:null, ms:null, runnable:false},
+ {id:'crm.customer.churn-warning',      name:'客户流失预警',   runs:0,  status:null, ms:null, runnable:false},
+ {id:'crm.receivable.reconcile',        name:'回款三方对账',   runs:0,  status:null, ms:null, runnable:false},
+ {id:'crm.receivable.payment-habit',    name:'客户付款习惯分析', runs:0, status:null, ms:null, runnable:false},
+ {id:'crm.contract.fulfillment-track',  name:'合同履约跟踪',   runs:0,  status:null, ms:null, runnable:false},
+];
+
+const EDGES = [
+ {from:'crm.backlog.today-priority', to:'crm.receivable.overdue-warning', weight:9, reason:'有 5 条回款计划逾期、1 笔回款待审核，需要按逾期天数分级动作'},
+ {from:'crm.backlog.today-priority', to:'crm.contract.renewal-plan', weight:9, reason:'1 份合同即将到期，需要续约概率、报价与时间表'},
+ {from:'crm.backlog.today-priority', to:'crm.contract.audit-precheck', weight:8, reason:'2 份合同待审核，先做一致性预检可减少退回'},
+ {from:'crm.backlog.today-priority', to:'crm.clue.follow-up-suggestion', weight:8, reason:'3 条待跟进线索分别已 11/15/10 天未联系，需个性化话术与转化路径'},
+ {from:'crm.backlog.today-priority', to:'crm.backlog.weekly-review', weight:2, reason:'今日待办与线索集中，可在完成 5 件事后复盘本周跟进覆盖与下周重点'},
+ {from:'crm.business.advance-strategy', to:'crm.business.quote-strategy', weight:2, reason:'原价 420,000 折后 399,000、折扣 5%，需拆解折扣空间与打包口径'},
+ {from:'crm.business.advance-strategy', to:'crm.business.risk-check', weight:2, reason:'本商机已停滞 39 天且决策链单一，需要从预算、决策链、竞品、时间窗、技术五维体检'},
+ {from:'crm.business.advance-strategy', to:'crm.contact.decision-role', weight:2, reason:'客户 320 联系人仅 2 人、主联系人 1 人，需判定未接触的分管院长角色'},
+ {from:'crm.business.advance-strategy', to:'crm.customer.duplicate-check', weight:1, reason:'「宏图建筑设计院有限公司」与「宏图建筑设计院（历史归档）」疑似重复'},
+ {from:'crm.receivable.overdue-warning', to:'crm.receivable.collection-plan', weight:1, reason:'已锁定 5 笔逾期与 2 笔即将到期，可据此生成分段催收计划并写入跟进记录。'},
+ {from:'crm.receivable.overdue-warning', to:'crm.receivable.reconcile', weight:1, reason:'金辉电子 380/387、百味食品 386 存在计划与回款记录不一致，需先对平再催收。'},
+ {from:'crm.receivable.overdue-warning', to:'crm.receivable.payment-habit', weight:1, reason:'金辉电子、天诚物流多次逾期，可分析历史回款周期以预测下次回款时点。'},
+ {from:'crm.receivable.overdue-warning', to:'crm.contract.fulfillment-track', weight:1, reason:'对照合同金额与回款进度，识别逾期合同（380/385/386/387）的履约与收款风险。'},
+ {from:'crm.customer.health-check', to:'crm.receivable.collection-plan', weight:1, reason:'两笔逾期合计 191,200 元（最长 23 天），需按逾期天数生成分级催收动作与话术'},
+ {from:'crm.customer.health-check', to:'crm.customer.churn-warning', weight:1, reason:'A 级客户 37 天未联系、在手商机为 0，需识别流失信号并给出挽回动作'},
+ {from:'crm.customer.health-check', to:'crm.customer.visit-prep', weight:1, reason:'计划联系日已逾期 13 天，回访前需一份含时间线、在手业务与必问问题的简报'},
+];
+
+const NEVER_RUN = ['商机赢单分析','线索质量评分','拜访纪要整理','沟通话术生成','合同风险审查','合同条款解读',
+  '分析此客户','生成跟进方案','产品组合推荐','销售漏斗诊断','业绩达成预测','团队辅导预警','查询供应链库存'];
+
+/* ---------------------------------- 布局 ---------------------------------- *
+ * 分层用**最长路径**（保证边永远从左指向右），层内按父节点顺序排（少交叉）。
+ * 真实现里这步该用 dagre/elk 之类的自动布局；设计稿数据量小，手排更可控。 */
+const COL_X = [34, 394, 754];
+const NH = 46, GAP = 10, STEP = NH + GAP, TOP = 46;
+
+const byId = new Map(NODES.map((n) => [n.id, n]));
+const parents = new Map(), children = new Map();
+for (const e of EDGES) {
+  if (!children.has(e.from)) children.set(e.from, []);
+  children.get(e.from).push(e.to);
+  if (!parents.has(e.to)) parents.set(e.to, []);
+  parents.get(e.to).push(e.from);
+}
+
+// 层内顺序：先按"父节点的顺序"排，父节点顺序递归下去 —— 保证同一祖先的孩子挨在一起
+const roots = NODES.filter((n) => !parents.has(n.id)).map((n) => n.id);
+const order = [];
+const visited = new Set();
+const walk = (id) => { if (visited.has(id)) return; visited.add(id); order.push(id);
+  for (const c of (children.get(id) ?? [])) walk(c); };
+roots.forEach(walk);
+NODES.forEach((n) => walk(n.id));   // 兜底：孤立节点也排进去
+
+// 深度 = 最长路径
+const depth = new Map();
+const setDepth = (id, d) => {
+  if ((depth.get(id) ?? -1) >= d) return;
+  depth.set(id, d);
+  for (const c of (children.get(id) ?? [])) setDepth(c, d + 1);
+};
+roots.forEach((id) => setDepth(id, 0));
+NODES.forEach((n) => { if (!depth.has(n.id)) depth.set(n.id, 0); });
+
+const cols = [[], [], []];
+for (const id of order) cols[depth.get(id)].push(id);
+
+const pos = new Map();
+// 第 1 层先排（它最长），第 0 / 2 层对齐到各自子/父节点的中心
+cols[1].forEach((id, i) => pos.set(id, { x: COL_X[1], y: TOP + i * STEP }));
+const centerOf = (ids, fallbackIdx) => {
+  const ys = ids.map((id) => pos.get(id)).filter(Boolean).map((p) => p.y + NH / 2);
+  if (!ys.length) return TOP + fallbackIdx * STEP + NH / 2;
+  return (Math.min(...ys) + Math.max(...ys)) / 2;
+};
+cols[0].forEach((id, i) => {
+  const c = centerOf(children.get(id) ?? [], i);
+  pos.set(id, { x: COL_X[0], y: Math.round(c - NH / 2) });
+});
+const col2Y = (() => {
+  const total = cols[2].length * STEP - GAP;
+  const mid = (TOP + cols[1].length * STEP - GAP) / 2;
+  return Math.round(mid - total / 2);
+})();
+cols[2].forEach((id, i) => pos.set(id, { x: COL_X[2], y: col2Y + i * STEP }));
+
+/* ---------------------------------- 渲染 ---------------------------------- */
+const wires = document.getElementById('wires');
+const nodeLayer = document.getElementById('nodes');
+const pop = document.getElementById('pop');
+const SVGNS = 'http://www.w3.org/2000/svg';
+
+/** 节点右侧中点 → 目标左侧中点，三次贝塞尔。 */
+function edgePath(a, b) {
+  const x1 = a.x + 200, y1 = a.y + NH / 2, x2 = b.x, y2 = b.y + NH / 2;
+  const dx = Math.max(40, (x2 - x1) * 0.55);
+  return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+}
+
+const edgeEls = new Map();
+for (const e of EDGES) {
+  const a = pos.get(e.from), b = pos.get(e.to);
+  if (!a || !b) continue;
+  const d = edgePath(a, b);
+  const p = document.createElementNS(SVGNS, 'path');
+  p.setAttribute('d', d);
+  p.setAttribute('class', 'edge');
+  p.setAttribute('marker-end', 'url(#arw)');
+  wires.appendChild(p);
+  const t = document.createElementNS(SVGNS, 'text');
+  const mid = { x: (a.x + 200 + b.x) / 2, y: (a.y + b.y) / 2 + NH / 2 - 5 };
+  t.setAttribute('x', mid.x); t.setAttribute('y', mid.y);
+  t.setAttribute('text-anchor', 'middle');
+  t.textContent = `×${e.weight}`;
+  wires.appendChild(t);
+  edgeEls.set(`${e.from}->${e.to}`, { path: p, label: t });
+}
+// 箭头
+wires.insertAdjacentHTML('afterbegin',
+  `<defs><marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+     <path d="M0,1 L9,5 L0,9" fill="none" stroke="#94A3B8" stroke-width="1.4"/></marker></defs>`);
+
+const nodeEls = new Map();
+for (const n of NODES) {
+  const p = pos.get(n.id);
+  if (!p) continue;
+  const el = document.createElement('div');
+  el.className = 'node ' + (n.runs > 0 ? 'done' : (n.runnable ? 'idle' : 'out'));
+  el.style.left = p.x + 'px';
+  el.style.top = p.y + 'px';
+  const statusTag = n.runs > 0
+    ? `<span class="tag ok">✓ ${(n.ms / 1000).toFixed(1)}s</span>`
+    : (n.runnable ? '' : '<span class="tag out">档案外</span>');
+  el.innerHTML = `${n.runs > 0 ? `<span class="cnt">${n.runs}</span>` : ''}
+    <div class="nn">${n.name}</div>
+    <div class="nm">${statusTag}${n.runs > 0 ? '' : `<span>${n.runnable ? '可发起' : '不可执行'}</span>`}</div>`;
+  nodeLayer.appendChild(el);
+  nodeEls.set(n.id, el);
+}
+
+/* ------------------------------- 交互 ---------------------------------- */
+const outgoing = new Map(EDGES.map((e) => [e.from, EDGES.filter((x) => x.from === e.from)]));
+let collapsed = new Set(cols[2]);      // 第 2 层默认收起（演示"点一层展开一层"）
+let runningId = null;
+
+function applyCollapse() {
+  for (const n of NODES) {
+    const el = nodeEls.get(n.id);
+    const d = depth.get(n.id);
+    const hidden = d >= 2 && collapsed.has(n.id);
+    el.style.display = hidden ? 'none' : '';
+  }
+  for (const e of EDGES) {
+    const { path, label } = edgeEls.get(`${e.from}->${e.to}`) ?? {};
+    if (!path) continue;
+    const hidden = collapsed.has(e.to);
+    path.style.display = hidden ? 'none' : '';
+    label.style.display = hidden ? 'none' : '';
+  }
+}
+
+function reset() {
+  for (const el of nodeEls.values()) el.classList.remove('hl', 'faded');
+  for (const { path, label } of edgeEls.values()) { path.classList.remove('hot', 'dim', 'run'); label.classList.remove('hot'); }
+}
+
+function hoverNode(id) {
+  reset();
+  const outs = outgoing.get(id) ?? [];
+  const keep = new Set([id, ...outs.map((e) => e.to)]);
+  for (const [nid, el] of nodeEls) {
+    if (!keep.has(nid)) el.classList.add('faded'); else el.classList.add('hl');
+  }
+  for (const e of outs) {
+    const hit = edgeEls.get(`${e.from}->${e.to}`);
+    if (hit) { hit.path.classList.add('hot'); hit.label.classList.add('hot'); }
+  }
+  const n = byId.get(id);
+  const p = pos.get(id);
+  const rows = outs.length
+    ? outs.map((e) => `<div class="prow"><span class="pdot"></span><div>
+        <div class="pname">${byId.get(e.to).name} <span class="pw">×${e.weight}</span></div>
+        <div class="preason">${e.reason}</div></div></div>`).join('')
+    : `<div class="pempty">${n.runs > 0
+        ? '这次运行没有给出「下一步意图」——信封里 nextIntents 是空的。'
+        : '还没跑过它，所以没有观测到的下一步。<b>不编。</b>'}</div>`;
+  pop.innerHTML = `<div class="pt">${n.name} 的下一步（实测观测）</div>${rows}`;
+  // 浮层是 .graph 的绝对定位子元素（.graph 有 position:relative），
+  // 所以坐标要相对 .graph 算：节点在 .gcanvas（top:46）里的坐标，再减掉画布滚动量。
+  // 第一版把 .graph 在舞台里的偏移也加进去了 —— 那是重复计算，浮层会整体右移 320px。
+  const cv = document.getElementById('gcanvas');
+  const GW = 1120, PW = 340;   // 网络区宽度 / 浮层宽度
+  let left = p.x + 210 - cv.scrollLeft;
+  if (left + PW > GW) left = p.x - PW - 10 - cv.scrollLeft;   // 右边放不下就翻到左侧
+  if (left < 6) left = 6;
+  const top = Math.max(52, Math.min(46 + p.y - 8 - cv.scrollTop, 808 - 230));
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
+  pop.classList.add('show');
+}
+
+function unhover() { reset(); pop.classList.remove('show'); }
+
+for (const [id, el] of nodeEls) {
+  el.addEventListener('mouseenter', () => hoverNode(id));
+  el.addEventListener('mouseleave', unhover);
+  el.addEventListener('click', () => {
+    const outs = outgoing.get(id) ?? [];
+    const hasHidden = outs.some((e) => collapsed.has(e.to));
+    if (hasHidden) { outs.forEach((e) => collapsed.delete(e.to)); applyCollapse(); }
+    else openDrawer(id);
+  });
+}
+
+/* 详情抽屉：复用结果卡（结论 / 下一步 / 查看详情） */
+const drawer = document.getElementById('drawer');
+function openDrawer(id) {
+  const n = byId.get(id);
+  const outs = outgoing.get(id) ?? [];
+  document.getElementById('dTitle').textContent = n.name;
+  document.getElementById('dSub').textContent = n.runs
+    ? `${id} · 跑过 ${n.runs} 次 · 最近 ${n.status} ${(n.ms / 1000).toFixed(1)}s`
+    : `${id} · 还没跑过${n.runnable ? '' : ' · 不在当前档案能力里'}`;
+  const lead = id === 'crm.receivable.overdue-warning'
+    ? '今天排在最前面的是 <b>金辉电子科技有限公司</b>：2 期回款逾期共 <b>19.12 万</b>，已逾期 23 天且 38 天没有联系。'
+    : (n.runs ? '（这里放那次运行的结论，一行两句，数字加粗）' : '还没跑过，所以没有结果卡。');
+  document.getElementById('dBody').innerHTML = `
+    <div class="dlead">${lead}</div>
+    <div class="dsec">下一步意图 · ${outs.length}</div>
+    ${outs.length ? outs.map((e) => `<span class="dchip">${byId.get(e.to).name} ×${e.weight}</span>`).join('')
+      : '<span class="dchip grey">这次没给下一步</span>'}
+    <div class="dsec">这条从哪来</div>
+    <div class="dnote">${parents.has(id)
+      ? `被 ${parents.get(id).map((p) => byId.get(p).name).join('、')} 指向过。`
+      : '没有任何边指向它——它是你自己发起的起点。'}</div>
+    <div class="dsec">完整结果</div>
+    <span class="dtoggle">▸ 查看详情　8 项总览 · 5 件事 · 2 条明细</span>
+    <div class="dbtns">
+      ${n.runnable ? '<span class="btn pri">执行</span>' : '<span class="btn" style="color:#98A2B3">不在你能力里</span>'}
+      <span class="btn ghost">换个对象</span>
+    </div>`;
+  drawer.classList.add('show');
+}
+document.getElementById('dClose').onclick = () => drawer.classList.remove('show');
+
+/* 工具条 */
+document.getElementById('btnExpand').onclick = () => { collapsed.clear(); applyCollapse(); };
+document.getElementById('btnCollapse').onclick = () => {
+  collapsed = new Set(NODES.filter((n) => byId.get(n.id).runs === 0 && depth.get(n.id) >= 1).map((n) => n.id));
+  applyCollapse();
+};
+document.getElementById('btnRun').onclick = () => {
+  const btn = document.getElementById('btnRun');
+  if (runningId) {   // 再点一次 = 停止
+    nodeEls.get(runningId).classList.remove('running');
+    for (const { path } of edgeEls.values()) path.classList.remove('run');
+    btn.classList.remove('on'); btn.textContent = '▶ 模拟一次运行';
+    document.getElementById('gsub').textContent = '17 次运行 · 走过 16 条边 · 4 个意图跑过';
+    runningId = null;
+    return;
+  }
+  // 演示：让「逾期风险预警」进入运行态（它的入边流光）
+  runningId = 'crm.receivable.overdue-warning';
+  collapsed.delete(runningId); applyCollapse();
+  nodeEls.get(runningId).classList.add('running');
+  const hi = edgeEls.get('crm.backlog.today-priority->crm.receivable.overdue-warning');
+  if (hi) hi.path.classList.add('run');
+  btn.classList.add('on'); btn.textContent = '■ 停止模拟';
+  // 只报可观测的事实，不报百分比
+  document.getElementById('gsub').textContent = '正在跑：逾期风险预警 · 已等待 3 秒（不显示百分比）';
+};
+
+applyCollapse();
+</script>
+</body>
+</html>

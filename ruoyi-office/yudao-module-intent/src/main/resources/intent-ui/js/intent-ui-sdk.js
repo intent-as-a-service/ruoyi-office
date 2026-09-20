@@ -494,7 +494,11 @@
 
   Panel.prototype.nextEntries = function () {
     var h = this.handle;
-    var list = (h.state.result && h.state.result.output && h.state.result.output.nextIntents) || [];
+    var out = h.state.result && h.state.result.output;
+    // ⚠️ 字段名是 `nextIntents`（驼峰，见 IntentOutput）。这里原来写成了全小写
+    // `nextintents`——JS 区分大小写，取值恒为 undefined，所以「推荐意图」一直没渲染出来。
+    // 两种都认：修掉历史写法，也容错将来写成小写的执行器。
+    var list = (out && (out.nextIntents || out.nextIntents)) || [];
     return list.filter(function (n) {
       return n && n.intentId && h.state.allEntries.some(function (e) { return e.id === n.intentId; });
     });

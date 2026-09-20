@@ -3,6 +3,7 @@ package cn.iocoder.yudao.module.intent.service;
 import cn.iocoder.yudao.module.intent.dal.dataobject.IntentConfigDO;
 import cn.iocoder.yudao.module.intent.dal.mysql.IntentConfigMapper;
 import cn.iocoder.yudao.module.intent.framework.config.IntentProperties;
+import cn.iocoder.yudao.module.intent.service.workbench.WorkbenchService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.intent.protocol.CatalogResponse;
 import dev.intent.protocol.ExecutionTraceRecord;
@@ -13,12 +14,19 @@ import dev.intent.protocol.IntentRequest;
 import dev.intent.protocol.IntentResult;
 import dev.intent.protocol.IntentSpec;
 import dev.intent.protocol.IntentStatus;
+import dev.intent.protocol.ResolvedSlot;
+import dev.intent.protocol.SlotRef;
+import dev.intent.protocol.SlotView;
 import dev.intent.sdk.catalog.IntentCatalogAssembler;
 import dev.intent.sdk.catalog.IntentCatalogContext;
 import dev.intent.sdk.catalog.IntentCatalogEnricher;
+import dev.intent.sdk.catalog.IntentCatalogKeys;
 import dev.intent.sdk.host.IntentContextBridge;
+import dev.intent.sdk.host.IntentCatalogEntries;
+import dev.intent.sdk.host.IntentExecutorTypeResolver;
 import dev.intent.sdk.host.IntentPermissionPolicy;
 import dev.intent.sdk.host.IntentPrincipal;
+import dev.intent.sdk.host.IntentSlotResolver;
 import dev.intent.sdk.pi.IntentRuntime;
 import dev.intent.sdk.store.TraceStore;
 import jakarta.annotation.Resource;
@@ -29,6 +37,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 意图服务：目录（按角色过滤）、执行（角色鉴权）、留痕、反馈、上架配置。
@@ -60,60 +69,117 @@ public class IntentService {
     private IntentContextBridge contextBridge;
     @Resource
     private dev.intent.sdk.tool.HostToolRegistry hostToolRegistry;
+    /** 工作台装配（角色 / 视角 / 档案 / 槽位登记）：见 {@link WorkbenchService}。 */
+    @Resource
+    private WorkbenchService workbenchService;
+    /** 执行器类型解析：目录项与执行结果要带 agent/skill/flow，前端才能做成本预估。 */
+    @Resource
+    private IntentExecutorTypeResolver executorTypeResolver;
+    /** 槽位解析 SPI：没装实现的宿主用 none()，工作台跳过失效校验（不报错、不阻塞）。 */
+    @Resource
+    private IntentSlotResolver slotResolver;
     /** 宿主目录增强器（动态提示 / 动态建议）：业务模块声明 Bean 即接入，缺省无增强。 */
     @Autowired(required = false)
     private List<IntentCatalogEnricher> catalogEnrichers = new ArrayList<>();
-    /** 目录增强结果缓存：同一用户 + 页面在 TTL 内复用，执行意图后立即失效。 */
-    private final CatalogCache catalogCache = new CatalogCache();
+    /**
+     * 意图集合缓存：键 = 租户|用户|角色|页面|对象，TTL 较长（上下架 / 角色变更会显式清）。
+     *
+     * <p>与建议缓存<b>分开</b>是刻意的：槽位一变不该把整份意图菜单缓存废掉。</p>
+     */
+    private final TimedCache<List<IntentCatalogEntry>> entriesCache = new TimedCache<>();
+    /** 目录增强（建议 / 徽标）结果缓存：键里多了视角与槽位哈希，TTL 短（建议是"事实"，放久会误导）。 */
+    private final TimedCache<IntentCatalogAssembler.Result> suggestionsCache = new TimedCache<>();
+
+    /** 意图集合缓存 TTL（秒）：上下架与角色变更都会显式清，这里只防高频重复扫描。 */
+    private static final int ENTRIES_TTL_SECONDS = 600;
 
     // ------------------------------------------------------------ 目录与鉴权
 
-        private IntentCatalogEntry toCatalogEntry(IntentSpec spec) {
-        return new IntentCatalogEntry(spec.getId(), spec.getName(),
-                spec.getDescription(), spec.getScope(), spec.getTargetSystem(),
-                spec.getCardType(), spec.getParamsSchema(), spec.getContext(), spec.getPages(),
-                spec.getAliases() == null || spec.getAliases().isEmpty() ? null : spec.getAliases(),
-                null);
+    /**
+     * 目录请求（工作台一次查询的全部输入）。
+     *
+     * @param page       当前页面标识（可空 = 意图中心，返回全量）
+     * @param slots      上下文栈（可空）；它<b>只影响增强结果，不影响意图集合</b>
+     * @param view       视角 id（可空 / self = 以本人全部角色看）；视角只能收窄角色
+     * @param objectType 焦点对象类型（可空）：前端当前打开的业务单据
+     * @param objectId   焦点对象编号（可空）
+     * @param objectName 焦点对象展示名（可空，仅供理由文案）
+     */
+    public record CatalogRequest(String page, List<SlotView> slots, String view,
+            String objectType, String objectId, String objectName) {
+
+        public CatalogRequest {
+            slots = slots == null ? List.of() : List.copyOf(slots);
+        }
+
+        /** 只按页面的请求（页面内嵌调用 / 老前端）。 */
+        public static CatalogRequest of(String page) {
+            return new CatalogRequest(page, List.of(), null, null, null, null);
+        }
     }
 
+    /** 兼容入口：只按页面取目录（页面内嵌调用 / 老前端）。 */
     public CatalogResponse getCatalog(Long userId, String page) {
-        // ① 当前用户可见的意图（上架 + 角色）：建议通道复用该集合做准入，
+        return getCatalog(userId, CatalogRequest.of(page));
+    }
+
+    /**
+     * 目录（工作台版本）：意图集合由「角色 × 页面」决定，槽位只改变增强结果。
+     *
+     * <p>缓存拆两个键，别合并（合并的后果见 {@code IntentCatalogKeys} 的类注释）：</p>
+     * <ol>
+     *   <li>{@code entriesKey} = 租户|用户|角色|页面|对象 —— 槽位不在里面；</li>
+     *   <li>{@code suggestionsKey} = entriesKey|视角|槽位哈希 —— 槽位只脏这一层。</li>
+     * </ol>
+     */
+    public CatalogResponse getCatalog(Long userId, CatalogRequest request) {
+        WorkbenchService.UserScope scope = workbenchService.scope(userId, request.view());
+        IntentCatalogContext context = buildCatalogContext(userId, request.page(),
+                request.objectType(), request.objectId(), request.objectName());
+        // ① 当前作用域（角色 × 视角）下可见的意图：建议通道复用该集合做准入，
         //    下架/无权限的意图不得从"动态建议"漏出
-        List<IntentCatalogEntry> visible = specRegistry.getAll().stream()
-                .filter(this::isEnabled)
-                .filter(spec -> visibleTo(userId, spec))
-                .map(this::toCatalogEntry)
-                .toList();
-        // ② 当前页面装载的意图（前端渲染主体）
+        String entriesKey = IntentCatalogKeys.entriesKey(context, scope.effectiveRoles());
+        List<IntentCatalogEntry> visible = entriesCache.get(entriesKey, ENTRIES_TTL_SECONDS);
+        if (visible == null) {
+            visible = specRegistry.getAll().stream()
+                    .filter(this::isEnabled)
+                    .filter(spec -> visibleTo(userId, spec, scope))
+                    .map(spec -> IntentCatalogEntries.of(spec, executorTypeResolver))
+                    .toList();
+            entriesCache.put(entriesKey, userId, visible, ENTRIES_TTL_SECONDS);
+        }
+        // ② 当前页面装载的意图（前端渲染主体）：与槽位无关，是纯函数
         List<IntentCatalogEntry> entries = visible.stream()
-                .filter(entry -> matchesPage(entry.pages(), page))
+                .filter(entry -> matchesPage(entry.pages(), request.page()))
                 .toList();
         // ③ 目录增强：动态提示（徽标）与动态建议，带缓存与失败降级
-        IntentCatalogAssembler.Result enriched = enrich(userId, page, entries, visible);
+        String suggestionsKey = IntentCatalogKeys.suggestionsKey(entriesKey, request.view(), request.slots());
+        IntentCatalogAssembler.Result enriched = enrich(userId, request, context, entries, visible, suggestionsKey);
+        // issues 必须原样带出：丢了它，前端就分不出"今天真没待办"与"取数挂了"
         return new CatalogResponse(properties.getSystemName(),
                 properties.getGateway().isEnabled() ? GatewayStatus.ENABLED : GatewayStatus.UNAVAILABLE,
-                enriched.entries(), enriched.suggestions());
+                enriched.entries(), enriched.suggestions(), enriched.issues());
     }
 
     /**
      * 目录增强：调用宿主 {@link IntentCatalogEnricher} 求值用户相关的事实
      * （如"2 份合同即将到期"），求值失败/超时不影响意图菜单可用性。
      */
-    private IntentCatalogAssembler.Result enrich(Long userId, String page,
-            List<IntentCatalogEntry> entries, List<IntentCatalogEntry> visible) {
+    private IntentCatalogAssembler.Result enrich(Long userId, CatalogRequest request,
+            IntentCatalogContext context, List<IntentCatalogEntry> entries,
+            List<IntentCatalogEntry> visible, String suggestionsKey) {
         IntentProperties.Suggestions config = properties.getSuggestions();
         if (!config.isEnabled() || catalogEnrichers.isEmpty()) {
             return IntentCatalogAssembler.Result.of(entries);
         }
-        IntentCatalogContext context = buildCatalogContext(userId, page);
-        String cacheKey = context.cacheKey();
-        IntentCatalogAssembler.Result cached = catalogCache.get(cacheKey, config.getCacheSeconds());
+        IntentCatalogAssembler.Result cached = suggestionsCache.get(suggestionsKey, config.getCacheSeconds());
         if (cached != null) {
             return cached;
         }
+        // 槽位在这里透传给增强器：它是"按用户当前谈的对象推待办"的唯一入口
         IntentCatalogAssembler.Result result = IntentCatalogAssembler.assemble(
-                context, entries, visible, catalogEnrichers, config.getMax());
-        catalogCache.put(cacheKey, result, config.getCacheSeconds());
+                context, request.slots(), entries, visible, catalogEnrichers, config.getMax());
+        suggestionsCache.put(suggestionsKey, userId, result, config.getCacheSeconds());
         return result;
     }
 
@@ -135,7 +201,7 @@ public class IntentService {
         IntentResult result = intentRuntime.execute(spec, request.params(), request.context(),
                 request.user(), contextBridge.toolDecorator());
         // 用户刚办完一件事：目录增强（待办计数 / 建议）立即失效，下次打开即刷新
-        catalogCache.evictUser(userId);
+        suggestionsCache.evictUser(userId);
         return result;
     }
 
@@ -202,7 +268,7 @@ public class IntentService {
         return specRegistry.getAll().stream()
                 .filter(this::isEnabled)
                 .filter(spec -> visibleTo(userId, spec))
-                .map(this::toCatalogEntry)
+                .map(spec -> IntentCatalogEntries.of(spec, executorTypeResolver))
                 .toList();
     }
 
@@ -215,11 +281,17 @@ public class IntentService {
 
     /** 目录求值上下文（用户 / 租户 / 页面 / 时区）：事实取数与规则预览共用。 */
     public IntentCatalogContext buildCatalogContext(Long userId, String page) {
+        return buildCatalogContext(userId, page, null, null, null);
+    }
+
+    /** 目录求值上下文（用户 / 租户 / 页面 / 焦点对象 / 时区）。 */
+    public IntentCatalogContext buildCatalogContext(Long userId, String page,
+            String objectType, String objectId, String objectName) {
         Long tenantId = cn.iocoder.yudao.framework.tenant.core.context.TenantContextHolder.getTenantId();
         return new IntentCatalogContext(
                 userId == null ? null : String.valueOf(userId), null,
                 tenantId == null ? null : String.valueOf(tenantId),
-                page, null, null, null, properties.getTimeZone());
+                page, objectType, objectId, objectName, properties.getTimeZone());
     }
 
     /**
@@ -227,7 +299,8 @@ public class IntentService {
      * 意图规范（别名/名称/描述）增删改之后调用——运营改完就该立刻生效，而不是等 TTL。
      */
     public void evictCatalogCache() {
-        catalogCache.clear();
+        entriesCache.clear();
+        suggestionsCache.clear();
     }
 
     /** 目录增强配置（规则预览的条数配额与缓存开关同源）。 */
@@ -263,8 +336,27 @@ public class IntentService {
         return config == null || !Boolean.FALSE.equals(config.getEnabled());
     }
 
+    /** 兼容入口：不考虑视角（页面内嵌调用 / 规则预览）。 */
     private boolean visibleTo(Long userId, IntentSpec spec) {
+        return visibleTo(userId, spec, null);
+    }
+
+    /**
+     * 可见性判定：角色 + 视角。
+     *
+     * <p>视角<b>只可能减、不可能加</b>——{@code scope.effectiveRoles()} 是本人角色的子集
+     * （见 {@code WorkbenchProfileRegistry.effectiveRoles}）。所以这里用它做的是"收窄"，
+     * 而真正的权限判定仍然交给宿主权限体系。</p>
+     */
+    private boolean visibleTo(Long userId, IntentSpec spec, WorkbenchService.UserScope scope) {
         List<String> roles = rolesOf(spec);
+        if (roles.isEmpty() || roles.contains("*")) {
+            return true;
+        }
+        if (scope != null && scope.narrowed()
+                && java.util.Collections.disjoint(roles, scope.effectiveRoles())) {
+            return false;
+        }
         IntentPrincipal principal = userId == null
                 ? IntentPrincipal.anonymous()
                 : IntentPrincipal.of(String.valueOf(userId), null, null, List.of());
@@ -300,16 +392,67 @@ public class IntentService {
         }
     }
 
+    // ------------------------------------------------------------ Run（执行留痕）
+
+    /** Run 上限：P0 只做 limit，不做游标分页——JSONL 是流式全量读，写游标是假的。 */
+    private static final int MAX_RUN_LIMIT = 100;
+
+    /**
+     * 我的 Run 列表。
+     *
+     * <p><b>方法签名里没有"查谁的"，也没有可选的 userId</b>：参数不存在就无从伪造。
+     * 将来真要做"主管看团队"，正确做法是另开端点 + 另做权限判定，
+     * 而不是在这里加一个可选参数——那会让这道防线当场失效。</p>
+     *
+     * <p>底下走的是 {@code TraceStore.listOwned}：它对本办法要求的 userId 为空的场景
+     * <b>直接抛错</b>，而不是退化成 {@code list(null, n)} "查所有人"。</p>
+     */
+    public List<ExecutionTraceRecord> listRuns(Long userId, int limit) {
+        return traceStore.listOwned(requireUserId(userId), clampLimit(limit));
+    }
+
+    /**
+     * 取一条<b>属于我</b>的 Run：不属于我 / 不存在 / 入参为空，一律 {@link Optional#empty()}。
+     *
+     * <p>端点把它映射成 404 而不是 403：403 会泄露"这条 traceId 存在但不属于你"，
+     * 于是 traceId 就成了探测他人执行记录的口子。这是安全口径，不是 UI 偏好。</p>
+     */
+    public Optional<ExecutionTraceRecord> findRun(Long userId, String traceId) {
+        return traceStore.findOwned(requireUserId(userId), traceId);
+    }
+
+    /** 兼容老前端的"按意图过滤"：口径与 {@link #listRuns} 完全一致，没有第二条取数路径。 */
     public List<ExecutionTraceRecord> getHistory(Long userId, String intentId, int limit) {
-        String userFilter = userId == null ? null : String.valueOf(userId);
-        return traceStore.list(userFilter, limit).stream()
-                .filter(r -> intentId == null || intentId.equals(r.intentId()))
+        return listRuns(userId, limit).stream()
+                .filter(record -> intentId == null || intentId.equals(record.intentId()))
                 .toList();
     }
 
-    public ExecutionTraceRecord getTrace(String traceId) {
-        return traceStore.get(traceId).orElseThrow(
-                () -> new IllegalArgumentException("执行留痕不存在: " + traceId));
+    /** 身份缺失时提前炸：不让"身份丢了"静默退化成一次查询所有人的调用。 */
+    private static String requireUserId(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("需要登录身份：Run 只按归属查询");
+        }
+        return String.valueOf(userId);
+    }
+
+    private static int clampLimit(int limit) {
+        return Math.min(Math.max(limit, 1), MAX_RUN_LIMIT);
+    }
+
+    // ------------------------------------------------------------ 槽位
+
+    /**
+     * 批量解析槽位（失效检测 / 接力反查）。
+     *
+     * <p>没装 {@code IntentSlotResolver} 实现的宿主拿到空 Map，前端跳过校验——
+     * 这是降级基线，不报错、不阻塞。</p>
+     */
+    public Map<String, ResolvedSlot> resolveSlots(Long userId, List<SlotRef> refs) {
+        IntentPrincipal principal = userId == null
+                ? IntentPrincipal.anonymous()
+                : IntentPrincipal.of(String.valueOf(userId), null, null, List.of());
+        return slotResolver.resolve(principal, refs);
     }
 
     public void saveFeedback(IntentFeedback feedback, Long userId, String nickname) {
@@ -332,42 +475,49 @@ public class IntentService {
                 .orElseThrow(() -> new IllegalArgumentException("意图不存在: " + intentId));
     }
 
-    /** 目录增强结果缓存：key = 用户|页面，TTL 到期或用户执行意图后失效。 */
-    private static final class CatalogCache {
+    /**
+     * 带归属的定时缓存：TTL 到期失效，或按<b>归属用户</b>精确失效。
+     *
+     * <p>把 userId 存在值里、而不是靠键的前缀去匹配，是一个刻意的选择：
+     * 键的形状（{@code 租户|用户|角色|页面|对象}）是 SDK 定的，
+     * 宿主按"第二个竖线前面就是用户"去猜，SDK 哪天调整键的构成就静默失效——
+     * 表现是"用户刚办完事、待办计数却不变"，而且不报错，极难定位。</p>
+     */
+    private static final class TimedCache<V> {
 
-        void clear() {
-            entries.clear();
+        private record Holder<V>(Long userId, V value, long at) {
         }
 
-        private record Entry(IntentCatalogAssembler.Result result, long at) {
-        }
+        private final Map<String, Holder<V>> entries = new java.util.concurrent.ConcurrentHashMap<>();
 
-        private final Map<String, Entry> entries = new java.util.concurrent.ConcurrentHashMap<>();
-
-        IntentCatalogAssembler.Result get(String key, int ttlSeconds) {
+        V get(String key, int ttlSeconds) {
             if (ttlSeconds <= 0) {
                 return null;
             }
-            Entry entry = entries.get(key);
-            if (entry == null) {
+            Holder<V> holder = entries.get(key);
+            if (holder == null) {
                 return null;
             }
-            if (System.currentTimeMillis() - entry.at() > ttlSeconds * 1000L) {
+            if (System.currentTimeMillis() - holder.at() > ttlSeconds * 1000L) {
                 entries.remove(key);
                 return null;
             }
-            return entry.result();
+            return holder.value();
         }
 
-        void put(String key, IntentCatalogAssembler.Result result, int ttlSeconds) {
+        void put(String key, Long userId, V value, int ttlSeconds) {
             if (ttlSeconds > 0) {
-                entries.put(key, new Entry(result, System.currentTimeMillis()));
+                entries.put(key, new Holder<>(userId, value, System.currentTimeMillis()));
             }
         }
 
+        /** 某个用户执行完意图后，只清他自己的那几份（不误伤别人，也不漏清）。 */
         void evictUser(Long userId) {
-            String prefix = userId + "|";
-            entries.keySet().removeIf(key -> key.startsWith(prefix));
+            entries.entrySet().removeIf(entry -> java.util.Objects.equals(entry.getValue().userId(), userId));
+        }
+
+        void clear() {
+            entries.clear();
         }
     }
 
